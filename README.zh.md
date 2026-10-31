@@ -1,6 +1,6 @@
 # 深度 PTC 模式
 
-[English](README.md) · MIT · 当前版本：**1.4.0**
+[English](README.md) · MIT · 当前版本：**1.5.0**
 
 DeepSeek Harness 的 Agent 模式（preset），工具面与内置 PTC 完全一致，只换掉「工作方式」：让模型把能力用满、全程可被打断、按任务大小决定要不要你批准、拿不准就问你，并且自己选命令在哪个环境里跑。
 
@@ -11,12 +11,33 @@ DeepSeek Harness 的 Agent 模式（preset），工具面与内置 PTC 完全一
 | 你遇到的问题 | 深度PTC模式的做法 |
 | --- | --- |
 | 模型总想帮你省 token，少查、少测，结果质量打折 | 人设写明「在深度求索工作，本模式 token 预算无限，把预算花在工作上」：不为省 token 跳过读取、搜索、命令或验证；同时禁止注水、啰嗦和撑爆上下文 |
-| 任务跑起来后模型在 sleep 或干等，你发消息它不理 | 构建、测试、安装、服务器等耗时命令一律放后台 job；模型继续做短步骤、不阻塞地查看进度，没事可做就结束回合。job 完成会自动唤醒它，你的消息会被立刻处理 |
+| 任务跑起来后模型在 sleep 或干等，你发消息它不理 | 由代码强制：前台命令超过 30 秒自动转后台，你一发消息正在等的命令立即转后台、模型马上看到消息，长 sleep 直接拒绝；job 完成会自动唤醒模型（详见下方「代码层强制」） |
 | 不管大小任务都同一种开工方式 | 按预计耗时分三档：5 分钟内自己计划直接做；5–20 分钟先告诉你计划、不等审批就执行；超过 20 分钟先给计划、等你批准 |
 | 意思没弄懂就开干，最后返工 | 意思归用户，事实归工具：不认识的名称、多个可能目标、技术路线、范围和验收标准不确定时先问你（1–3 个带选项的问题），不靠搜索去猜你的意图；文件位置、当前行为这类事实自己查 |
 | 命令环境固定，Windows 上想用 WSL、Mac 上想用 Zsh 都不方便 | 设置里可选 WSL Bash、PowerShell、Zsh（macOS/Linux）或原生 Bash，只对本模式生效，不改全局 shell |
 
 使用三步：安装插件 → 在 **设置 → 插件 → 深度 PTC** 里选执行环境 → 新建任务时在模式选择器里选「深度PTC模式」。
+
+## 代码层强制：不休眠、随时可插话
+
+「不 sleep、不干等」不只写在提示词里，1.5.0 起由插件代码强制执行，模型不遵守也绕不过去：
+
+| 场景 | 代码行为 |
+| --- | --- |
+| 前台命令跑得久 | 超过 **30 秒**（可配置 5–600）自动转为后台 job，命令不会被杀掉；模型请求更长的 `timeoutMs` 也会被压到这个上限 |
+| 命令运行中你发了消息 | 约 2 秒内结束前台等待，命令转入后台继续跑，模型立刻看到你的消息；job 完成后仍会自动唤醒模型 |
+| `job_output` 等待 job | 等待上限同为 30 秒；你一发消息就提前返回；你的消息未读时再次等待会被拒绝 |
+| 模型写 `sleep 60`、`Start-Sleep 30`、`timeout /t 20` | 前台超过 5 秒的暂停直接拒绝（`run_in_background` 的命令不受限）；`sleep 1` 这类就绪循环照常 |
+| `run_code` 程序里 `setTimeout`/`setInterval`/`time.sleep` | 超过 5 秒、或时长不是数字字面量的等待直接拒绝；同一程序里轮询同一个运行中 job 超过 3 次也会被拒绝 |
+| `ask_user_question` | 改为限时模式：默认等 120 秒，最多 300 秒，`-1`（无限等）被拒绝；超时后问题变为「待回答」，你之后的回答会作为消息送达；你不点卡片、直接打字回复，也会立刻结束等待 |
+
+这些规则只作用于「深度PTC模式」会话，不影响其他模式。前提是桌面端设置里「忙碌时回车」为**插入当前任务（steer）**；若为排队（queue），消息会等整轮结束才送达。
+
+```yaml
+- id: deep-ptc-settings
+  config:
+    foregroundSeconds: 30   # 前台等待上限（秒），5–600
+```
 
 ## 选择 WSL、PowerShell 或 macOS 工具
 
@@ -43,7 +64,7 @@ WSL 命令使用 Linux/POSIX 语法；文件工具和 `workdir` 仍用 Windows �
 ## 工作规则
 
 - **不为 token 省力：** 人设写明在深度求索工作、本模式 token 预算无限，按问题需要而不是成本决定读取、搜索、命令和验证的深度；同时禁止注水和啰嗦，单次上下文仍有限，靠压缩、裁剪和子代理控制。
-- **任务运行中随时可插话：** 不 sleep、不轮询、不挂长时间前台调用。构建、测试、安装、服务器等耗时命令放后台 job，期间继续做短步骤，用不阻塞的方式查看进度；没事可做就一句话说明在跑什么并结束回合，job 完成会自动唤醒模型，你的消息会被立即处理。
+- **任务运行中随时可插话：** 由代码强制（见上文），提示词同时要求：不 sleep、不轮询、不挂长时间前台调用。构建、测试、安装、服务器等耗时命令放后台 job，期间继续做短步骤，用不阻塞的方式查看进度；没事可做就一句话说明在跑什么并结束回合，job 完成会自动唤醒模型，你的消息会被立即处理。
 - **按任务长短计划：** ≤5 分钟内部计划直接做，不单独告知；5–20 分钟展示计划后立即执行，不等审批；>20 分钟展示计划并等你批准再改动。估计升档时重新说明计划；显式 plan mode 的规则优先。
 - **意图不清先问：** 意思归用户，事实归工具。不认识的名称、多个可能目标、技术路线、权威来源、做事方式、验收标准和范围不确定时先问，不用搜索去猜你的术语；文件位置、当前行为、版本等可检查的事实自己查。每次 1–3 个带选项的问题，推荐项在前；你的回答优先于模型推断。
 - **进度可见：** 每次 `run_code` 前一句话说明要做什么，里程碑稍长汇报，连续两三个工具调用必须出声。
@@ -58,10 +79,10 @@ WSL 命令使用 Linux/POSIX 语法；文件工具和 `workdir` 仍用 Windows �
 本地目录或构建产物可通过插件管理器安装：
 
 ```js
-plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.4.0" })
+plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.5.0" })
 // 也可从本地目录或安装包安装：
 plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-deep-ptc-mode" })
-// 或 target: "C:\\path\\to\\dsh-deep-ptc-mode-1.4.0.tgz"
+// 或 target: "C:\\path\\to\\dsh-deep-ptc-mode-1.5.0.tgz"
 ```
 
 GitHub 地址：`github:lishize20040802-rgb/dsh-deep-ptc-mode`。该地址安装远端实际内容；本地升级不会自动发布到 GitHub/npm。
@@ -90,6 +111,7 @@ npm ci
 npm run check
 npm test
 npm run check:upstream -- /path/to/ptc.patch.yml
+PTC_RUNTIME_MODULES=/path/to/dsh/node_modules node scripts/check-reachability.mjs  # 用真实运行时验证可打断等待
 npm pack
 ```
 
@@ -101,7 +123,9 @@ npm pack
 - `lib/index.mjs`：配置 schema、preset 注册和版本切换。
 - `lib/model.mjs`：平台选择、参数、隔离配置和环境说明。
 - `lib/executor.mjs`：复用官方进程/沙箱语义的 WSL/Zsh 执行器。
-- `lib/terminal.mjs`：复用官方终端工具，提供 Zsh 方言与工具名。
+- `lib/terminal.mjs`：复用官方 Bash/PowerShell 终端工具，等待可被用户消息打断，并提供 Zsh 方言与工具名。
+- `lib/jobs-tool.mjs`、`lib/ask-user.mjs`：官方 job 工具与提问工具的包装，等待可被用户消息打断。
+- `lib/guard.mjs`、`lib/rules.mjs`、`lib/sleep-lint.mjs`、`lib/reachable.mjs`：拒绝长暂停与轮询的工具守卫，以及可打断等待的实现。
 - `lib/client.js`：中英文设置卡片。
 - `lib/preset.json`：persona 和上游 PTC 模板。
 - `test/`、`scripts/check.mjs`、`compatibility.json`：回归与上游差异检查。

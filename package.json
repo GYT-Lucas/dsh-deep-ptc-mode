@@ -1,7 +1,7 @@
 {
   "name": "dsh-deep-ptc-mode",
-  "version": "1.4.0",
-  "description": "Deep PTC mode for DeepSeek Harness: no token rationing, stays interruptible while background jobs run, plans by task size (approval only for long tasks), asks instead of guessing intent, and runs commands in WSL, PowerShell, Zsh or Bash.",
+  "version": "1.5.0",
+  "description": "Deep PTC mode for DeepSeek Harness: no token rationing, code-enforced no-sleep (long commands move to the background and user messages interrupt waits), plans by task size (approval only for long tasks), asks instead of guessing intent, and runs commands in WSL, PowerShell, Zsh or Bash.",
   "type": "module",
   "keywords": [
     "dsh-plugin",
@@ -10,7 +10,8 @@
     "ptc",
     "agent-team",
     "subagent",
-    "clarification"
+    "clarification",
+    "background-jobs"
   ],
   "license": "MIT",
   "author": {
@@ -58,6 +59,9 @@
     ".": "./lib/index.mjs",
     "./executor": "./lib/executor.mjs",
     "./terminal": "./lib/terminal.mjs",
+    "./jobs-tool": "./lib/jobs-tool.mjs",
+    "./ask-user": "./lib/ask-user.mjs",
+    "./guard": "./lib/guard.mjs",
     "./environment": "./lib/environment.mjs",
     "./client": "./lib/client.js",
     "./package.json": "./package.json"
@@ -78,6 +82,9 @@
     "@deepseek-ai/dsh-bash-local": ">=0.2.1-rc.5",
     "@deepseek-ai/dsh-bash-sandbox": ">=0.2.1-rc.5",
     "@deepseek-ai/dsh-tool-bash": ">=0.2.1-rc.5",
+    "@deepseek-ai/dsh-tool-pwsh": ">=0.2.1-rc.5",
+    "@deepseek-ai/dsh-tool-jobs": ">=0.2.1-rc.5",
+    "@deepseek-ai/dsh-tool-ask-user": ">=0.2.1-rc.5",
     "@deepseek-ai/dsh-client-ui-renderer": ">=0.2.1-rc.5",
     "@deepseek-ai/dsh-client-ui-settings": ">=0.2.1-rc.5",
     "@deepseek-ai/dsh-client-ui-slots": ">=0.2.1-rc.5",
@@ -94,6 +101,15 @@
       "optional": true
     },
     "@deepseek-ai/dsh-tool-bash": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-tool-pwsh": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-tool-jobs": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-tool-ask-user": {
       "optional": true
     },
     "@deepseek-ai/dsh-client-ui-renderer": {

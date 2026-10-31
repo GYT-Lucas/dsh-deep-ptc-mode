@@ -55,6 +55,10 @@ registerHooks({ resolve(specifier, context, next) {
       this.definitions.push(definition);
       return () => { this.definitions = this.definitions.filter(d => d !== definition); };
     }); }
+    guard(guard) { return this.ctx.effect(() => {
+      this.guards = [...(this.guards ?? []), guard];
+      return () => { this.guards = this.guards.filter(g => g !== guard); };
+    }); }
   }
   class TestPrompt extends Service {
     constructor(ctx) { super(ctx, 'systemPrompt'); }
@@ -168,9 +172,14 @@ registerHooks({ resolve(specifier, context, next) {
   const { AgentPresetRegistry } = await load(fromRuntime.resolve('@deepseek-ai/dsh-agent-preset-registry'));
   const actualRegistryFiber = rootContext.plugin(AgentPresetRegistry, { default: 'execution-probe' });
   await actualRegistryFiber;
-  const releaseProbe = await rootContext.agentPresets.register({ id: 'execution-probe', plugins: [wslGroup] });
+  const full = model.configuredPreset(template, { environment: 'wsl', wslDistribution: distribution }, 'win32').plugins;
+  const probeRows = [wslGroup, ...full.filter(row => ['reachability', 'tool-jobs'].includes(row.id))];
+  const releaseProbe = await rootContext.agentPresets.register({ id: 'execution-probe', plugins: probeRows });
   const inventory = await rootContext.agentPresets.compositionInventory();
   assert.equal(inventory[0].broken, undefined);
+  assert.ok(rootContext.tools.guards?.length > 0, 'reachability guard registered');
+  assert.match(rootContext.tools.guards[0]({ name: 'bash', arguments: { command: 'sleep 60' } }) ?? '', /refuses/);
+  console.log('Reachability guard and wrapped job tools activate in the preset: passed');
   for (const composition of rootContext.agentPresets.inspectCompositions()) assert.deepEqual(composition.leakedServices, []);
   console.log('Actual preset-registry activation and no service leaks: passed');
   await releaseProbe();

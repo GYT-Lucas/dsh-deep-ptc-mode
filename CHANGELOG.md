@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.0 — 2026-10-31
+
+- Enforce reachability in code. Foreground shell commands move to background jobs after `foregroundSeconds` (default 30, configurable 5–600); a larger requested timeout is capped. Commands still run; only the wait ends.
+- A user message steered into the turn ends the current foreground wait within about 2 s: shell commands move to the background, `job_output` returns, and a timed question becomes pending. Waiting again with job_output while the message is unread is refused.
+- Refuse foreground pauses over 5 s (`sleep`, `Start-Sleep`, `timeout /t`), `run_code` programs that wait on long or non-literal timers, `setInterval` and `Atomics.wait`, and more than 3 polls of one running job inside a program.
+- Run `ask_user_question` in timed mode (120 s default, 300 s cap, `-1` refused) and fix the persona, which named a non-existent `timeoutMs` parameter.
+- Wrap the official bash, pwsh, job and question tools instead of replacing them; the upstream check verifies exactly which rows are wrapped.
+- Add `scripts/check-reachability.mjs`, an integration check on a real DSH runtime, and extend the Windows host check to activate the guard.
+
 ## 1.4.0 — 2026-10-31
 
 - Restore the 1.2.0 intent in the persona while keeping 1.3.0's execution environments: the DeepSeek identity and unlimited-budget contract with anti-padding guardrails; size-based planning (internal up to five minutes, shown without approval up to twenty, approved beyond); asking about meaning instead of searching for it.

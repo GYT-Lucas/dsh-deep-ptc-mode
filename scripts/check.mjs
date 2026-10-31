@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import yaml from 'js-yaml';
-import { configuredPreset } from '../lib/model.mjs';
+import { configuredPreset, WRAPPED_ROWS } from '../lib/model.mjs';
 
 const root = new URL('../', import.meta.url);
 const expression = new yaml.Type('tag:yaml.org,2002:js', {
@@ -26,8 +26,10 @@ export function checkCompatibility(template, upstream) {
       const preset = configuredPreset(template, { environment, wslDistribution: '' }, platform);
       const execution = preset.plugins.find(row => row.id === 'execution');
       assert.deepEqual(execution.isolate, { shell: true });
-      const unchanged = preset.plugins.filter(row => row.id !== 'execution');
-      assert.deepEqual(unchanged, template.plugins.filter(row => !['tool-bash', 'tool-pwsh'].includes(row.id)));
+      const wrapped = Object.keys(WRAPPED_ROWS);
+      const unchanged = preset.plugins.filter(row => !['execution', 'reachability', ...wrapped].includes(row.id));
+      assert.deepEqual(unchanged, template.plugins.filter(row => !['tool-bash', 'tool-pwsh', ...wrapped].includes(row.id)));
+      for (const id of wrapped) assert.match(preset.plugins.find(row => row.id === id).name, /^dsh-deep-ptc-mode\//u);
     }
   }
 }
