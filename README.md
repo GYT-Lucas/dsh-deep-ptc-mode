@@ -1,8 +1,8 @@
 # Deep PTC mode
 
-[中文](README.zh.md) · MIT · **1.3.0**
+[中文](README.zh.md) · MIT · **1.4.0**
 
-A collaborative DeepSeek Harness PTC preset with visible progress, focused fact lookup, semantic clarification, scoped work, evidence-based verification and lifecycle-aware background jobs.
+A DeepSeek Harness PTC preset that spends its budget on the work, stays reachable while jobs run, plans by task size, asks instead of guessing intent, and lets you choose the execution environment.
 
 ## Choose an execution environment
 
@@ -28,24 +28,24 @@ Native PowerShell, Bash and Zsh use Harness sandbox, approval and process manage
 
 ## Working contract
 
-- Report milestones and keep active work visible about every 30–60 seconds at tool boundaries. Combine trivial reads instead of narrating every call.
-- Make a focused read-only lookup for unfamiliar installed names and locations. Ask when meaning remains ambiguous or consequential user choices change the work; search cannot define intent.
-- Plan internally for small linear tasks and show concise plans for larger work. Duration does not revoke existing authorization. Explicit plan mode keeps its read-only and approval requirements.
-- Use current evidence and verify changed behavior. Finish when acceptance criteria and relevant checks are satisfied; repeat checks for new changes, failures or conflicting evidence.
-- Distinguish finite jobs, long-lived services and external tasks without Harness notifications. Check server readiness and continue validation. Collect relevant results before declaring completion.
-- Delegate independent work deliberately, define disjoint write scopes and collect results through the actual tool's channel.
+- Spend the budget on the work: the persona states that the model works at DeepSeek with an unlimited token budget in this mode, so it does not skip reads, searches, commands or checks to save tokens. Guardrails forbid padding, and compaction, pruning and subagents keep each request inside its finite context window.
+- Stay reachable while work runs: no sleeps, busy-polls or long foreground calls. Long commands run as background jobs while the model continues short steps and checks progress without blocking; with nothing left to do it states what is running and ends the turn. Job completion wakes it, and user messages are handled immediately.
+- Plan by expected size: five minutes or less, plan internally and act; five to twenty minutes, show the plan and start without approval; more than twenty minutes, show the plan and wait for approval. Re-plan when the estimate moves up a band. Explicit plan mode always wins.
+- Ask instead of guessing intent: meaning belongs to the user, facts to the tools. Unfamiliar names, competing targets or routes, authoritative sources, expected process, acceptance criteria and scope are asked about rather than guessed or searched for; inspectable facts are looked up. One to three questions with options, recommended first; the user's answer wins.
+- Work visibly: one sentence before each `run_code`, longer updates at milestones, never more than two or three silent tool calls.
+- Verify changed behavior and stop when criteria are met; delegate only genuinely independent work and collect results through the actual tool's channel.
 
-This expresses a working preference, not a grant of extra tokens, different billing or greater model capacity. Prompt compliance and quality gains still need real-task evaluation.
+A prompt changes the model's working tendency, not the real token limit or billing, and compliance is not guaranteed. The setting that actually controls thinking depth is the model's `reasoningEffort`.
 
 ## Install or upgrade
 
 Requires Node `>=24` and DSH `>=0.2.1-rc.5`. Windows desktop rc.5 was used for real WSL/PowerShell command checks. macOS/Zsh configuration, argv and tool mounting were checked; native macOS execution has not been verified on this Windows host.
 
 ```js
-plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.3.0" })
+plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.4.0" })
 // Or from a local checkout or archive:
 plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-deep-ptc-mode" })
-// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.3.0.tgz"
+// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.4.0.tgz"
 ```
 
 Repository locator: `github:lishize20040802-rgb/dsh-deep-ptc-mode`. It installs content actually published there; a local upgrade does not publish to GitHub or npm.

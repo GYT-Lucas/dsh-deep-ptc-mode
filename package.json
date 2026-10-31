@@ -1,6 +1,6 @@
 {
   "name": "dsh-deep-ptc-mode",
-  "version": "1.3.1",
+  "version": "1.4.0",
   "description": "Deep PTC with visible progress, scoped verification, lifecycle-aware background work and selectable WSL, PowerShell, Bash or Zsh execution.",
   "type": "module",
   "keywords": [

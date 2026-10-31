@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0 — 2026-10-31
+
+- Restore the 1.2.0 intent in the persona while keeping 1.3.0's execution environments: the DeepSeek identity and unlimited-budget contract with anti-padding guardrails; size-based planning (internal up to five minutes, shown without approval up to twenty, approved beyond); asking about meaning instead of searching for it.
+- Make waiting reachable: background jobs, non-blocking progress checks, ending the turn when idle, and handling mid-task user messages first, based on the runtime's step-boundary steering and job wakeups.
+- Restore one-sentence progress before each run_code and a stated "not doing" list in plans.
+
 ## 1.3.0 — 2026-10-30
 
 - Add bilingual settings for Automatic, WSL Bash, Windows PowerShell, native Zsh and native Bash. WSL distribution is optional. Unsupported choices are disabled according to the host platform.
