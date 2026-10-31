@@ -2,7 +2,21 @@
 
 [中文](README.zh.md) · MIT · **1.4.0**
 
-A DeepSeek Harness PTC preset that spends its budget on the work, stays reachable while jobs run, plans by task size, asks instead of guessing intent, and lets you choose the execution environment.
+A DeepSeek Harness agent preset with exactly the built-in PTC tool surface and a different way of working: the model uses its full capability, stays interruptible while work runs, asks for approval only when a task is long, asks you instead of guessing, and runs commands in the environment you choose.
+
+## Overview
+
+Deep PTC targets five common problems with the built-in PTC mode:
+
+| Problem | What Deep PTC does |
+| --- | --- |
+| The model rations tokens, skipping reads and tests, and quality suffers | The persona states that it works at DeepSeek with an unlimited token budget in this mode: never skip a read, search, command or check to save tokens. Guardrails forbid padding, verbosity and context blow-ups |
+| Once work starts, the model sleeps or waits and ignores your messages | Builds, tests, installs and servers run as background jobs; the model keeps working in short steps, checks progress without blocking, and ends the turn when idle. Job completion wakes it and your messages are handled immediately |
+| Every task starts the same way regardless of size | Three bands by estimated time: up to 5 minutes, plan internally and act; 5–20 minutes, show the plan and start without approval; over 20 minutes, show the plan and wait for approval |
+| It starts before understanding what you meant, then redoes the work | Meaning belongs to you, facts to the tools: unfamiliar names, competing targets or routes, scope and acceptance criteria are asked about (one to three questions with options), never guessed by searching; file locations and current behavior are looked up |
+| The command environment is fixed | Choose WSL Bash, PowerShell, Zsh (macOS/Linux) or native Bash in settings; the choice applies to this preset only and leaves the global shell alone |
+
+Three steps: install the plugin → pick an environment under **Settings → Plugins → Deep PTC** → choose **深度PTC模式** in the mode picker for a new task.
 
 ## Choose an execution environment
 

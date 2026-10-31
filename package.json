@@ -1,7 +1,7 @@
 {
   "name": "dsh-deep-ptc-mode",
   "version": "1.4.0",
-  "description": "Deep PTC with visible progress, scoped verification, lifecycle-aware background work and selectable WSL, PowerShell, Bash or Zsh execution.",
+  "description": "Deep PTC mode for DeepSeek Harness: no token rationing, stays interruptible while background jobs run, plans by task size (approval only for long tasks), asks instead of guessing intent, and runs commands in WSL, PowerShell, Zsh or Bash.",
   "type": "module",
   "keywords": [
     "dsh-plugin",
