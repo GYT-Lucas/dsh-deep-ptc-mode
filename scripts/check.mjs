@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { deriveDeepPtc, personaFrom, PRESET_META, SHELL_ROWS, walkRows } from '../lib/model.mjs';
+import { deriveDeepPtc, personaFrom, PRESET_META, SHELL_ROWS, SHELL_TOOLS, walkRows } from '../lib/model.mjs';
 import { OFFICIAL_PACKAGE, OFFICIAL_PRESET_ID, parseOfficialPreset } from '../lib/upstream.mjs';
 
 const root = new URL('../', import.meta.url);
@@ -61,7 +61,7 @@ export function assertPeerCoverage() {
  * @param preset - Output of deriveDeepPtc.
  * @param options - environment/platform pair used for the derivation.
  */
-export function assertDerivation(upstream, preset, { environment = 'wsl', wslDistribution = '', platform = 'win32', foregroundSeconds = 30 } = {}) {
+export function assertDerivation(upstream, preset, { environment = 'wsl', wslDistribution = '', platform = 'win32', foregroundSeconds = 30, ...more } = {}) {
   assert.equal(preset.id, PRESET_META.id);
   assert.equal(preset.name, PRESET_META.name);
   assert.ok(typeof preset.description === 'string' && preset.description.includes('当前环境'));
@@ -79,15 +79,19 @@ export function assertDerivation(upstream, preset, { environment = 'wsl', wslDis
   assert.equal(personas[0].config.prefix, persona.prefix);
   assert.equal(personas[0].config.suffix, persona.suffix);
 
+  // The execution group replaces the official shell rows only when the chosen environment maps onto
+  // an official shell tool; otherwise those rows are inherited unchanged.
+  const execution = derivedRows.filter(row => row.name === 'cordis:group' && row.isolate?.shell === true);
+  const grouped = execution.length > 0;
+
   // Every official row survives, is replaced on purpose, or is wrapped.
   for (const row of upstreamRows) {
     if (isPersona(row)) continue;
-    if (isShell(row)) {
-      // The official module must be gone. Deep PTC's own terminal reuses the
-      // historical `tool-bash`/`tool-pwsh` ids inside its execution group, so
-      // only a top-level id reuse would shadow the official row.
+    if (isShell(row) && grouped) {
+      // The official row is gone; its module is loaded by Deep PTC's terminal, which reuses the
+      // historical ids inside the execution group, so only a top-level id reuse would shadow it.
       assert.equal(derivedRows.some(candidate => candidate.name === row.name), false,
-        `official shell module ${row.name} must be replaced`);
+        `official shell row ${row.name} must be replaced`);
       assert.equal(preset.plugins.some(candidate => candidate.id === row.id), false,
         `official shell row ${row.id} must be replaced`);
       continue;
@@ -96,9 +100,10 @@ export function assertDerivation(upstream, preset, { environment = 'wsl', wslDis
     assert.ok(candidate, `official row ${row.id ?? row.name} is missing from the derived preset`);
     if (isWrapped(row)) {
       assert.match(candidate.name, /^dsh-deep-ptc-mode\//u);
+      assert.equal(candidate.config?.upstream, row.name, `${row.id} loads the official module ${row.name}`);
       const officialConfig = row.config ?? {};
       for (const key of Object.keys(officialConfig)) {
-        assert.deepEqual(candidate.config?.[key], officialConfig[key], `${row.id} keeps official config ${key}`);
+        assert.deepEqual(candidate.config?.options?.[key], officialConfig[key], `${row.id} keeps official config ${key}`);
       }
       continue;
     }
@@ -112,9 +117,15 @@ export function assertDerivation(upstream, preset, { environment = 'wsl', wslDis
   }
 
   // The Deep PTC additions are present exactly once and carry the expected shape.
-  const execution = derivedRows.filter(row => row.name === 'cordis:group' && row.isolate?.shell === true);
-  assert.equal(execution.length, 1, 'one isolated execution group');
-  assert.equal(execution[0].config.filter(row => !String(row.id).startsWith('execution')).length, 2, 'executor and terminal rows');
+  if (grouped) {
+    assert.equal(execution.length, 1, 'one isolated execution group');
+    const [executor, terminal] = execution[0].config.filter(row => !String(row.id).startsWith('execution'));
+    assert.ok(executor && terminal, 'executor and terminal rows');
+    const kind = environment === 'powershell' || (environment === 'auto' && platform === 'win32') ? 'pwsh' : 'bash';
+    const officialTool = upstreamRows.find(row => SHELL_TOOLS[kind].ids.includes(row.id) || SHELL_TOOLS[kind].names.includes(row.name));
+    assert.equal(terminal.config.upstream, officialTool?.name, `terminal loads the official ${kind} tool`);
+    assert.doesNotMatch(JSON.stringify(executor), /dsh-tool-/u, 'executor comes from the base declaration');
+  }
   const guard = derivedRows.filter(row => row.name === 'dsh-deep-ptc-mode/guard');
   assert.equal(guard.length, 1, 'one reachability guard');
   assert.equal(guard[0].config.foregroundSeconds, foregroundSeconds);
@@ -130,7 +141,7 @@ export function assertDerivation(upstream, preset, { environment = 'wsl', wslDis
   assert.deepEqual(derivedOrder, upstreamOrder.filter(id => derivedOrder.includes(id)));
 
   // Determinism across repeated derivations.
-  const again = deriveDeepPtc(upstream, { environment, wslDistribution, foregroundSeconds }, platform).preset;
+  const again = deriveDeepPtc(upstream, { environment, wslDistribution, foregroundSeconds, ...more }, platform).preset;
   assert.deepEqual(again, preset, 'derivation is deterministic');
 }
 

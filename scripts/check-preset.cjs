@@ -38,12 +38,18 @@ function resolveRows(rows, unresolved, resolved) {
   for (const row of rows) {
     if (row.group === true) { resolveRows(row.config, unresolved, resolved); continue; }
     if (typeof row.name !== 'string') continue;
-    if (row.name.startsWith('cordis:') || row.name.startsWith('dsh-deep-ptc-mode/')) continue;
-    try {
-      fromRuntime.resolve(row.name);
-      resolved.push(row.name);
-    } catch (error) {
-      unresolved.push(`${row.id ?? '?'} (${row.name}): ${error.code ?? error.message}`);
+    // Deep PTC rows load the official module their config names (`upstream`, or `base` for the
+    // mapped executor); those official names must resolve like any inherited row.
+    const names = row.name.startsWith('dsh-deep-ptc-mode/')
+      ? [row.config?.upstream, row.config?.base].filter(name => typeof name === 'string')
+      : row.name.startsWith('cordis:') ? [] : [row.name];
+    for (const name of names) {
+      try {
+        fromRuntime.resolve(name);
+        resolved.push(name);
+      } catch (error) {
+        unresolved.push(`${row.id ?? '?'} (${name}): ${error.code ?? error.message}`);
+      }
     }
   }
 }
@@ -55,8 +61,11 @@ function resolveRows(rows, unresolved, resolved) {
   const model = await load(path.join(stage, 'lib', 'model.mjs'));
 
   const official = loadOfficialPreset();
+  const { BASE_DECLARATION_SPECIFIER, parseOfficialExecutors } = await load(path.join(stage, 'lib', 'upstream.mjs'));
+  const executors = parseOfficialExecutors(require('node:fs').readFileSync(fromRuntime.resolve(BASE_DECLARATION_SPECIFIER), 'utf8'));
+  assert.ok(executors.bash && executors.pwsh, 'the base declaration names both shell executors');
   const derived = model.deriveDeepPtc(official.preset,
-    { environment, wslDistribution: process.env.PTC_WSL_DISTRIBUTION || '' }, 'win32');
+    { environment, wslDistribution: process.env.PTC_WSL_DISTRIBUTION || '', executors }, 'win32');
   const fallback = model.deriveDeepPtc(
     JSON.parse(require('node:fs').readFileSync(path.join(stage, 'lib', 'preset.json'), 'utf8')),
     { environment, wslDistribution: process.env.PTC_WSL_DISTRIBUTION || '' }, 'win32');
@@ -79,6 +88,7 @@ function resolveRows(rows, unresolved, resolved) {
     officialRows: official.preset.plugins.length,
     derivedRows: derived.preset.plugins.length,
     fallbackRows: fallback.preset.plugins.length,
+    executors,
     report: derived.report,
     resolvedModules: [...new Set(resolved)].sort(),
   }, null, 2));

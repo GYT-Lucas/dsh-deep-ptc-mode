@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.1 — 2026-11-04
+
+- Follow the official modules instead of naming them. The shell, job and question wrappers no longer import `@deepseek-ai/dsh-tool-bash`, `dsh-tool-pwsh`, `dsh-tool-jobs` or `dsh-tool-ask-user`: each derived row carries the module name and options of the official row it replaces (`upstream`, `options`), and the wrapper loads that module through the installed runtime's module graph with the official plugin's own `inject` and `Config`. A renamed or replaced official tool is followed rather than breaking the mount.
+- Read the shell executors from the base deployment declaration (`@deepseek-ai/dsh-base/cordis.patch.yml`, rows `bash-sandbox` and `pwsh-sandbox`), including their official options; only the foreground cap is added. The WSL/Zsh executor extends the official bash executor class named there instead of importing `dsh-bash-local`/`dsh-bash-sandbox`.
+- Fall back to the official shell rows when the chosen environment cannot be mapped: no official shell tool row, no declared executor, or an official bash executor whose API WSL/Zsh can no longer extend (probed before the preset is published). The reachability guard still applies; the preset never publishes rows that cannot mount.
+- Keep `lib/base-snapshot.json` as the executor fallback beside `lib/preset.json`; `npm run sync:snapshot` regenerates both. Drop the official tool and executor packages from `peerDependencies` and add `@deepseek-ai/dsh-base`.
+- `scripts/check-preset.cjs` also resolves the official modules the wrappers name. The runtime checks (`check-reachability.mjs`, `check-host.cjs`) now also run on `0.2.2-rc.1`, whose tool batches go through a selected executor and whose preset registry requires the agent registry.
+
 ## 1.6.0 — 2026-11-04
 
 - Derive the preset from the PTC preset the installed Harness declares (`@deepseek-ai/dsh-web-app/presets/ptc.patch.yml`) instead of freezing a copy. Official rows, settings and additions are inherited; Deep PTC still replaces only its persona, execution environment, reachability guard, and the official job/question wrappers.

@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import snapshot from '../lib/preset.json' with { type: 'json' };
 import { deriveDeepPtc, personaFrom, PRESET_META, walkRows } from '../lib/model.mjs';
-import { loadOfficialPreset, OFFICIAL_PRESET_SPECIFIER, parseOfficialPreset, PRESET_PATH_ENV } from '../lib/upstream.mjs';
+import { loadOfficialPreset, OFFICIAL_PRESET_SPECIFIER, parseOfficialExecutors, parseOfficialPreset, PRESET_PATH_ENV } from '../lib/upstream.mjs';
 import { assertDerivation, assertPeerCoverage, requiredPeerPackages } from '../scripts/check.mjs';
 
 const fixtureUrl = name => new URL(`fixtures/${name}`, import.meta.url);
@@ -79,15 +79,43 @@ test('tolerates official rows the plugin wraps disappearing', () => {
   assertDerivation(upstream, preset);
 });
 
-test('still builds a usable execution group when official shell rows disappear', () => {
+test('keeps the official shell rows when the chosen environment cannot be mapped onto them', () => {
   const upstream = structuredClone(current());
   upstream.plugins = upstream.plugins.filter(row => !['tool-bash', 'tool-pwsh'].includes(row.id));
   const { preset, report } = derive(upstream);
   assert.deepEqual(report.replacedShellRows, []);
-  assert.ok(report.skipped.includes('official shell rows'));
-  const group = preset.plugins.find(row => row.id === 'execution');
-  assert.equal(group.config[0].name, 'dsh-deep-ptc-mode/executor');
+  assert.equal(report.environment, 'official');
+  assert.match(report.skipped.join(' '), /no bash tool row/);
+  assert.equal(preset.plugins.some(row => row.id === 'execution'), false);
+  assert.ok(preset.plugins.some(row => row.id === 'reachability'), 'the reachability guard still applies');
   assertDerivation(upstream, preset);
+
+  const blocked = derive(current(), { mappedExecutor: false });
+  assert.equal(blocked.report.environment, 'official');
+  assert.ok(blocked.preset.plugins.some(row => row.id === 'tool-bash' && row.name === '@deepseek-ai/dsh-tool-bash'));
+  assertDerivation(current(), blocked.preset, { mappedExecutor: false });
+});
+
+test('follows official module renames instead of loading a hard-coded name', () => {
+  const upstream = structuredClone(current());
+  upstream.plugins.find(row => row.id === 'tool-jobs').name = '@deepseek-ai/dsh-tool-jobs-next';
+  upstream.plugins.find(row => row.id === 'tool-bash').name = '@deepseek-ai/dsh-tool-shell';
+  const executors = { bash: { name: '@deepseek-ai/dsh-shell-sandbox', config: { graceMs: 5000 } }, pwsh: { name: '@deepseek-ai/dsh-pwsh-sandbox' } };
+  const { preset } = derive(upstream, { executors });
+  assert.equal(preset.plugins.find(row => row.id === 'tool-jobs').config.upstream, '@deepseek-ai/dsh-tool-jobs-next');
+  const [executor, terminal] = preset.plugins.find(row => row.id === 'execution').config;
+  assert.equal(terminal.config.upstream, '@deepseek-ai/dsh-tool-shell');
+  assert.equal(executor.config.base, '@deepseek-ai/dsh-shell-sandbox');
+  assert.deepEqual(executor.config.options, { graceMs: 5000, timeoutMs: 30000, maxTimeoutMs: 30000 });
+  assertDerivation(upstream, preset, { executors });
+});
+
+test('reads the official executors from the base deployment declaration', () => {
+  const executors = parseOfficialExecutors(readFileSync(fixtureUrl('base-0.2.2-rc.1.patch.yml'), 'utf8'));
+  assert.deepEqual(executors, {
+    bash: { name: '@deepseek-ai/dsh-bash-sandbox', config: { timeoutMs: 60000 } },
+    pwsh: { name: '@deepseek-ai/dsh-pwsh-sandbox' },
+  });
 });
 
 test('rejects unusable declarations instead of publishing a broken preset', () => {

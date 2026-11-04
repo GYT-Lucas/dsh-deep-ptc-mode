@@ -43,10 +43,13 @@ await root.plugin(SubprocessLocal, {});
 await root.plugin(LocalBashExecutor, { timeoutMs: 6000, maxTimeoutMs: 6000 });
 await root.plugin(LocalJobRegistry, {});
 await root.plugin(ToolRuntime, {});
-await root.plugin(jobsTool, { waitTimeoutMs: 30000, maxWaitTimeoutMs: 30000 });
-await root.plugin(terminal, { tool: 'bash' });
+// From 0.2.2 tools dispatch through a selected executor as call batches.
+const batches = typeof root.tools.setExecutor === 'function';
+if (batches) await root.plugin(await load('@deepseek-ai/dsh-tool-executor-native'));
+await root.plugin(jobsTool, { upstream: '@deepseek-ai/dsh-tool-jobs', options: { waitTimeoutMs: 30000, maxWaitTimeoutMs: 30000 } });
+await root.plugin(terminal, { upstream: '@deepseek-ai/dsh-tool-bash' });
 await root.plugin(UserQuestionService, {});
-await root.plugin(askUser, { mode: 'timed', timeout: 120 });
+await root.plugin(askUser, { upstream: '@deepseek-ai/dsh-tool-ask-user', options: { mode: 'timed', timeout: 120 } });
 await root.plugin(guard, { foregroundSeconds: 6, maxQuestionSeconds: 300, maxPollsPerProgram: 3 });
 
 let calls = 0;
@@ -54,7 +57,9 @@ const run = async (name, args) => {
   const controller = new AbortController();
   const callId = `call-${++calls}`;
   const started = Date.now();
-  const result = await root.tools.execute({ name, arguments: args, callId, agent, signal: controller.signal });
+  const result = batches
+    ? (await root.tools.execute({ calls: [{ id: callId, name, arguments: JSON.stringify(args) }], agent, signal: controller.signal })).results[0].result
+    : await root.tools.execute({ name, arguments: args, callId, agent, signal: controller.signal });
   return { result, text: result.content?.map(part => part.text).join('\n') ?? '', ms: Date.now() - started };
 };
 const steer = text => {

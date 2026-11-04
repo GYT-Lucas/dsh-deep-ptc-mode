@@ -24,8 +24,12 @@ registerHooks({ resolve(specifier, context, next) {
   console.log('Context methods:', ['plugin', 'start', 'stop', 'get', 'set', 'provide', 'dispose'].filter(k => typeof rootContext[k] === 'function').join(', '));
   const mod = await load(stage + '/lib/index.mjs');
   console.log('Settings schema:', mod.Config.type, 'valid');
-  const { default: MappedShellExecutor } = await load(stage + '/lib/executor.mjs');
-  console.log('Executor schema:', MappedShellExecutor.Config.type, 'valid');
+  const mappedExecutor = await load(stage + '/lib/executor.mjs');
+  console.log('Executor schema:', mappedExecutor.Config.type, 'valid');
+  const waitFor = async (probe, what) => {
+    for (let i = 0; i < 100 && !probe(); i++) await new Promise(resolve => setTimeout(resolve, 20));
+    assert.ok(probe(), what);
+  };
   const { default: SubprocessLocal } = await load(fromRuntime.resolve('@deepseek-ai/dsh-subprocess-local'));
   class TestPolicy extends Service {
     constructor(ctx) { super(ctx, 'sandboxPolicy'); this.defaultMode = 'danger-full-access'; }
@@ -37,8 +41,11 @@ registerHooks({ resolve(specifier, context, next) {
   }
   const fibers = [rootContext.plugin(TestPolicy), rootContext.plugin(TestSandbox), rootContext.plugin(SubprocessLocal, {})];
   for (const fiber of fibers) await fiber;
-  const executorFiber = rootContext.plugin(MappedShellExecutor, { environment: 'wsl', wslDistribution: distribution });
+  // The executor extends the official bash executor named by the base declaration.
+  const executorFiber = rootContext.plugin(mappedExecutor, { environment: 'wsl', wslDistribution: distribution,
+    base: '@deepseek-ai/dsh-bash-sandbox', options: {} });
   await executorFiber;
+  await waitFor(() => rootContext.get('shell'), 'mapped WSL executor service registered');
   const executor = rootContext.get('shell');
   assert.ok(executor, 'executor service registered');
   const spec = executor.resolve({ command: 'printf "PTC_WSL_OK:%s\\n" "$WSL_DISTRO_NAME"', workdir: path.resolve(__dirname) });
@@ -88,7 +95,8 @@ registerHooks({ resolve(specifier, context, next) {
   await rootContext.loader.await();
   console.log('Loaded isolated group');
   console.log(JSON.stringify([...rootContext.loader.entries()].map(entry => ({ id: entry.options.id, name: entry.options.name, state: entry.fiber?.state }))));
-  assert.equal(rootContext.get('shell').config.environment, 'wsl', 'root executor must remain untouched by the preset group');
+  assert.equal(rootContext.get('shell').constructor.name, 'MappedShellExecutor', 'root executor must remain untouched by the preset group');
+  await waitFor(() => rootContext.tools.definitions.some(definition => definition.name === 'pwsh'), 'pwsh tool registered');
   const pwsh = rootContext.tools.definitions.find(definition => definition.name === 'pwsh');
   assert.ok(pwsh, 'PowerShell tool registered in isolated group');
   const psResult = await pwsh.execute({ command: 'Write-Output ("PTC_PWSH_OK:" + $PSVersionTable.PSEdition)',
@@ -109,6 +117,7 @@ registerHooks({ resolve(specifier, context, next) {
   const wslGroup = model.configuredPreset(template, { environment: 'wsl', wslDistribution: distribution }, 'win32').plugins.find(row => row.id === 'execution');
   await rootContext.loader.create(wslGroup);
   await rootContext.loader.await();
+  await waitFor(() => rootContext.tools.definitions.some(definition => definition.name === 'bash'), 'bash tool registered');
   const bashTool = rootContext.tools.definitions.find(definition => definition.name === 'bash');
   assert.ok(bashTool, 'WSL Bash tool registered');
   const bashResult = await bashTool.execute({ command: 'printf "PTC_TOOL_WSL_OK:%s\\n" "$PWD"',
@@ -132,6 +141,7 @@ registerHooks({ resolve(specifier, context, next) {
   const zshGroup = model.configuredPreset(template, { environment: 'zsh', wslDistribution: '' }, 'darwin').plugins.find(row => row.id === 'execution');
   await rootContext.loader.create(zshGroup);
   await rootContext.loader.await();
+  await waitFor(() => rootContext.tools.definitions.some(definition => definition.name === 'zsh'), 'zsh tool registered');
   const zshTool = rootContext.tools.definitions.find(definition => definition.name === 'zsh');
   assert.ok(zshTool, 'Native Zsh tool registered');
   assert.match(zshTool.description, /zsh/);
@@ -169,6 +179,14 @@ registerHooks({ resolve(specifier, context, next) {
   }
   const projectionsFiber = rootContext.plugin(TestProjections);
   await projectionsFiber;
+  // From 0.2.2 the preset registry also requires the agent registry.
+  class TestAgents extends Service {
+    constructor(ctx) { super(ctx, 'agents'); }
+    get() { return undefined; }
+    roots() { return []; }
+  }
+  const agentsFiber = rootContext.get('agents') === undefined ? rootContext.plugin(TestAgents) : undefined;
+  await agentsFiber;
   const { AgentPresetRegistry } = await load(fromRuntime.resolve('@deepseek-ai/dsh-agent-preset-registry'));
   const actualRegistryFiber = rootContext.plugin(AgentPresetRegistry, { default: 'execution-probe' });
   await actualRegistryFiber;
@@ -184,6 +202,7 @@ registerHooks({ resolve(specifier, context, next) {
   console.log('Actual preset-registry activation and no service leaks: passed');
   await releaseProbe();
   await actualRegistryFiber.dispose();
+  await agentsFiber?.dispose();
   await projectionsFiber.dispose();
   await loaderFiber.dispose();
   console.log('Cordis runtime integration passed');

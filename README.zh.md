@@ -1,6 +1,6 @@
 # 深度 PTC 模式
 
-[English](README.md) · MIT · 当前版本：**1.5.0**
+[English](README.md) · MIT · 当前版本：**1.6.1**
 
 DeepSeek Harness 的 Agent 模式（preset），工具面与内置 PTC 完全一致，只换掉「工作方式」：让模型把能力用满、全程可被打断、按任务大小决定要不要你批准、拿不准就问你，并且自己选命令在哪个环境里跑。
 
@@ -79,10 +79,10 @@ WSL 命令使用 Linux/POSIX 语法；文件工具和 `workdir` 仍用 Windows �
 本地目录或构建产物可通过插件管理器安装：
 
 ```js
-plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.5.0" })
+plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.6.1" })
 // 也可从本地目录或安装包安装：
 plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-deep-ptc-mode" })
-// 或 target: "C:\\path\\to\\dsh-deep-ptc-mode-1.5.0.tgz"
+// 或 target: "C:\\path\\to\\dsh-deep-ptc-mode-1.6.1.tgz"
 ```
 
 GitHub 地址：`github:lishize20040802-rgb/dsh-deep-ptc-mode`。该地址安装远端实际内容；本地升级不会自动发布到 GitHub/npm。
@@ -102,16 +102,16 @@ GitHub 地址：`github:lishize20040802-rgb/dsh-deep-ptc-mode`。该地址安装
 
 ## 兼容性与维护
 
-Deep PTC 在加载时依据已安装 Harness 声明的 PTC 预设（`@deepseek-ai/dsh-web-app/presets/ptc.patch.yml`）现场组合：官方行原样继承，仅替换 persona 文本、把两个互斥 shell 工具换成一个带 `shell` 隔离的执行组、加入可达性守卫，并包装官方 job 与提问工具。官方怎么改 PTC，本模式无需发版即可继承；官方改名或删除的模块也不会留下失效行。只有在该声明无法解析、读取或解析失败时，才退回内置的 `lib/preset.json` 快照，并在日志中说明。
+Deep PTC 在加载时依据已安装 Harness 声明的 PTC 预设（`@deepseek-ai/dsh-web-app/presets/ptc.patch.yml`）现场组合：官方行原样继承，仅替换 persona 文本、把两个互斥 shell 工具换成一个带 `shell` 隔离的执行组、加入可达性守卫，并包装官方 job 与提问工具。包装层和执行组自身不写死任何官方模块名：加载的都是官方行里写的模块（shell 执行器取自基础部署声明 `@deepseek-ai/dsh-base/cordis.patch.yml`），并沿用官方配置。官方怎么改 PTC，本模式无需发版即可继承；官方改名或删除的模块也不会留下失效行。所选执行环境无法对应到官方行时，保留官方 shell 行并在日志中说明。只有在该声明无法解析、读取或解析失败时，才退回内置的 `lib/preset.json` 快照，并在日志中说明。
 
-官方声明通过宿主运行时解析，因此插件引用的宿主包都必须声明在 `peerDependencies` 中（包括 `@deepseek-ai/dsh-web-app`）：对 `link:` 本地安装，宿主只有看到 peer 声明才会把这些包名路由到已安装运行时。漏声明时 `npm run check` 会失败——这正是避免本地安装静默退回快照的关键。`compatibility.json` 记录 fixture 所取自的上游版本及其哈希；`npm run check` 会验证内置回退快照与 fixture 仍组合出同一预设，并检查继承不变量。`engines` 是安装下限，不能证明之后所有宿主都经过测试，遇到新版本先用 `npm run check:upstream -- <path>` 复核。
+官方声明通过宿主运行时解析，因此插件静态引用的宿主包都必须声明在 `peerDependencies` 中（包括 `@deepseek-ai/dsh-web-app`）：对 `link:` 本地安装，宿主只有看到 peer 声明才会把这些包名路由到已安装运行时。漏声明时 `npm run check` 会失败——这正是避免本地安装静默退回快照的关键。`compatibility.json` 记录 fixture 所取自的上游版本及其哈希；`npm run check` 会验证内置回退快照与 fixture 仍组合出同一预设，并检查继承不变量。`engines` 是安装下限，不能证明之后所有宿主都经过测试，遇到新版本先用 `npm run check:upstream -- <path>` 复核。
 
 ```sh
 npm ci
 npm run check
 npm test
 npm run check:upstream -- /path/to/ptc.patch.yml
-npm run sync:snapshot                      # 从已安装声明刷新 lib/preset.json 回退快照
+npm run sync:snapshot                      # 从已安装声明刷新 lib/preset.json 与 lib/base-snapshot.json 回退快照
 PTC_RUNTIME_MODULES=/path/to/dsh/node_modules node scripts/check-preset.cjs  # 用真实运行时检查每行模块可解析
 PTC_RUNTIME_MODULES=/path/to/dsh/node_modules node scripts/check-reachability.mjs  # 用真实运行时验证可打断等待
 npm pack
@@ -124,9 +124,10 @@ npm pack
 - `cordis.patch.yml`：宿主设置入口。
 - `lib/index.mjs`：配置 schema、preset 注册和版本切换。
 - `lib/model.mjs`：平台选择、参数、隔离配置和环境说明，以及从官方声明派生 preset。
-- `lib/executor.mjs`：复用官方进程/沙箱语义的 WSL/Zsh 执行器。
-- `lib/terminal.mjs`：复用官方 Bash/PowerShell 终端工具，等待可被用户消息打断，并提供 Zsh 方言与工具名。
-- `lib/jobs-tool.mjs`、`lib/ask-user.mjs`：官方 job 工具与提问工具的包装，等待可被用户消息打断。
+- `lib/executor.mjs`：继承基础部署声明里的官方 bash 执行器，实现 WSL/Zsh。
+- `lib/terminal.mjs`：运行官方声明指定的 shell 工具，等待可被用户消息打断，并提供 Zsh 方言与工具名。
+- `lib/jobs-tool.mjs`、`lib/ask-user.mjs`：运行官方声明指定的 job 工具与提问工具，等待可被用户消息打断。
+- `lib/host.mjs`：通过已安装运行时解析这些官方模块。
 - `lib/guard.mjs`、`lib/rules.mjs`、`lib/sleep-lint.mjs`、`lib/reachable.mjs`：拒绝长暂停与轮询的工具守卫，以及可打断等待的实现。
 - `lib/client.js`：中英文设置卡片。
 - `lib/upstream.mjs`：定位并解析已安装的 PTC 声明。

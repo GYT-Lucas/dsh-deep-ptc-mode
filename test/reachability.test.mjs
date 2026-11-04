@@ -179,18 +179,23 @@ test('a timed question becomes pending when the user writes instead of answering
   assert.deepEqual(closed, [timeoutError]);
 });
 
-test('the preset wraps shells, job tools and questions and caps the foreground wait', () => {
+test('the preset wraps the official shell, job and question modules and caps the foreground wait', () => {
   const preset = configuredPreset(template, { environment: 'wsl', wslDistribution: 'Ubuntu', foregroundSeconds: 45 }, 'win32');
   const group = preset.plugins.find(row => row.id === 'execution');
-  assert.deepEqual(group.config[0].config, { environment: 'wsl', wslDistribution: 'Ubuntu', timeoutMs: 45000, maxTimeoutMs: 45000 });
-  assert.deepEqual(group.config[1], { id: 'tool-bash', name: 'dsh-deep-ptc-mode/terminal', config: { tool: 'bash' } });
+  assert.deepEqual(group.config[0].config, { environment: 'wsl', wslDistribution: 'Ubuntu', base: '@deepseek-ai/dsh-bash-sandbox',
+    options: { timeoutMs: 45000, maxTimeoutMs: 45000 } });
+  assert.deepEqual(group.config[1], { id: 'tool-bash', name: 'dsh-deep-ptc-mode/terminal', config: { upstream: '@deepseek-ai/dsh-tool-bash' } });
   assert.deepEqual(preset.plugins.find(row => row.id === 'reachability').config, { foregroundSeconds: 45 });
-  assert.deepEqual(preset.plugins.find(row => row.id === 'tool-jobs').config, { waitTimeoutMs: 45000, maxWaitTimeoutMs: 45000 });
-  assert.deepEqual(preset.plugins.find(row => row.id === 'tool-ask-user').config, { mode: 'timed', timeout: 120 });
+  assert.deepEqual(preset.plugins.find(row => row.id === 'tool-jobs').config,
+    { upstream: '@deepseek-ai/dsh-tool-jobs', options: { waitTimeoutMs: 45000, maxWaitTimeoutMs: 45000 } });
+  assert.deepEqual(preset.plugins.find(row => row.id === 'tool-ask-user').config,
+    { upstream: '@deepseek-ai/dsh-tool-ask-user', options: { mode: 'timed', timeout: 120 } });
   const pwsh = configuredPreset(template, { environment: 'powershell', wslDistribution: '' }, 'win32');
-  assert.deepEqual(pwsh.plugins.find(row => row.id === 'execution').config[1].config, { tool: 'pwsh' });
-  assert.equal(pwsh.plugins.find(row => row.id === 'execution').config[0].config.timeoutMs, 30000);
+  assert.deepEqual(pwsh.plugins.find(row => row.id === 'execution').config[1].config, { upstream: '@deepseek-ai/dsh-tool-pwsh' });
+  assert.deepEqual(pwsh.plugins.find(row => row.id === 'execution').config[0],
+    { id: 'executor', name: '@deepseek-ai/dsh-pwsh-sandbox', config: { timeoutMs: 30000, maxTimeoutMs: 30000 } });
   const zsh = configuredPreset(template, { environment: 'zsh', wslDistribution: '' }, 'darwin');
-  assert.deepEqual(zsh.plugins.find(row => row.id === 'execution').config[1], { id: 'tool-zsh', name: 'dsh-deep-ptc-mode/terminal', config: { tool: 'bash', dialect: 'zsh' } });
+  assert.deepEqual(zsh.plugins.find(row => row.id === 'execution').config[1],
+    { id: 'tool-zsh', name: 'dsh-deep-ptc-mode/terminal', config: { upstream: '@deepseek-ai/dsh-tool-bash', dialect: 'zsh' } });
   assert.throws(() => normalizeForegroundSeconds(2), /5 to 600/);
 });

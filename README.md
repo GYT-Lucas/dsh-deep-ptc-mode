@@ -1,6 +1,6 @@
 # Deep PTC mode
 
-[中文](README.zh.md) · MIT · **1.5.0**
+[中文](README.zh.md) · MIT · **1.6.1**
 
 A DeepSeek Harness agent preset with exactly the built-in PTC tool surface and a different way of working: the model uses its full capability, stays interruptible while work runs, asks for approval only when a task is long, asks you instead of guessing, and runs commands in the environment you choose.
 
@@ -77,10 +77,10 @@ A prompt changes the model's working tendency, not the real token limit or billi
 Requires Node `>=24` and DSH `>=0.2.1-rc.5`. Windows desktop rc.5 was used for real WSL/PowerShell command checks. macOS/Zsh configuration, argv and tool mounting were checked; native macOS execution has not been verified on this Windows host.
 
 ```js
-plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.5.0" })
+plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.6.1" })
 // Or from a local checkout or archive:
 plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-deep-ptc-mode" })
-// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.5.0.tgz"
+// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.6.1.tgz"
 ```
 
 Repository locator: `github:lishize20040802-rgb/dsh-deep-ptc-mode`. It installs content actually published there; a local upgrade does not publish to GitHub or npm.
@@ -100,16 +100,16 @@ Prefer the UI, which uses revisioned, atomic Host form writes.
 
 ## Compatibility and development
 
-Deep PTC is composed at load time from the PTC preset the installed Harness declares (`@deepseek-ai/dsh-web-app/presets/ptc.patch.yml`). Every official row is inherited as-is; Deep PTC replaces only its persona text, swaps the two platform-switched shell tools for one isolated execution group, adds the reachability guard, and wraps the official job and question tools. An official PTC change therefore reaches this mode without a plugin release, and a removed or renamed upstream module cannot leave a stale row behind. If the declaration cannot be resolved, read or parsed, the bundled `lib/preset.json` snapshot is used as a fallback and the fallback is logged.
+Deep PTC is composed at load time from the PTC preset the installed Harness declares (`@deepseek-ai/dsh-web-app/presets/ptc.patch.yml`). Every official row is inherited as-is; Deep PTC replaces only its persona text, swaps the two platform-switched shell tools for one isolated execution group, adds the reachability guard, and wraps the official job and question tools. The wrappers and the execution group never name an official module themselves: they load the module the official row names (and the shell executors the base deployment declares in `@deepseek-ai/dsh-base/cordis.patch.yml`), with the official options. An official PTC change therefore reaches this mode without a plugin release, and a removed or renamed upstream module cannot leave a stale row behind. When the chosen execution environment cannot be mapped onto the official rows, those rows are kept and the change is logged. If the declaration cannot be resolved, read or parsed, the bundled `lib/preset.json` snapshot is used as a fallback and the fallback is logged.
 
-Because the declaration is resolved through the host runtime, every host package the plugin imports is declared in `peerDependencies` — including `@deepseek-ai/dsh-web-app`. The host routes those names to the installation for a linked plugin; `npm run check` fails if one is missing, which is what keeps a `link:` installation on the live declaration instead of silently using the fallback snapshot. `compatibility.json` records the upstream release the checked fixture was taken from and its hash; `npm run check` verifies that the bundled fallback still derives the same preset as that fixture and that the inheritance invariants hold. The engines range is an installation floor, not proof that every future release was tested, so run `npm run check:upstream -- <path>` against a new release before trusting it.
+Because the declarations are resolved through the host runtime, every host package the plugin imports statically is declared in `peerDependencies` — including `@deepseek-ai/dsh-web-app`. The host routes those names to the installation for a linked plugin; `npm run check` fails if one is missing, which is what keeps a `link:` installation on the live declaration instead of silently using the fallback snapshot. `compatibility.json` records the upstream release the checked fixture was taken from and its hash; `npm run check` verifies that the bundled fallback still derives the same preset as that fixture and that the inheritance invariants hold. The engines range is an installation floor, not proof that every future release was tested, so run `npm run check:upstream -- <path>` against a new release before trusting it.
 
 ```sh
 npm ci
 npm run check
 npm test
 npm run check:upstream -- /path/to/the/new/upstream/ptc.patch.yml
-npm run sync:snapshot                      # refresh lib/preset.json from the installed declaration
+npm run sync:snapshot                      # refresh lib/preset.json and lib/base-snapshot.json from the installed declarations
 PTC_RUNTIME_MODULES=/path/to/dsh/node_modules node scripts/check-preset.cjs  # loader-level row resolution on a real runtime
 PTC_RUNTIME_MODULES=/path/to/dsh/node_modules node scripts/check-reachability.mjs  # interruptible waits on a real runtime
 npm pack
@@ -117,7 +117,7 @@ npm pack
 
 The checker parses `!!js` as data and asserts the derivation invariants: every official row survives unchanged except the persona, the shell rows and the two wrapped tools (including when the official preset nests them in a group); row ids stay unique; derivation is deterministic across nine platform/environment pairs. Tests cover future compositions as well (unknown rows, reordered rows, removed shell or wrapped rows), plus platforms, argv boundaries, confined WSL refusal, atomic settings writes and stale revisions. Real-task evaluations should measure successful completion, unnecessary questions, scope expansion, background-work collection and latency.
 
-Main files: `cordis.patch.yml` is the settings entry; `lib/index.mjs` manages revisions; `lib/model.mjs` builds isolated execution configurations; `lib/executor.mjs` adapts WSL/Zsh; `lib/terminal.mjs` wraps the official Bash/PowerShell tools with interruptible waits and provides the Zsh tool; `lib/jobs-tool.mjs` and `lib/ask-user.mjs` wrap the official job and question tools; `lib/guard.mjs`, `lib/rules.mjs`, `lib/sleep-lint.mjs` and `lib/reachable.mjs` implement the pause/polling guard and interruptible waits; `lib/client.js` owns the bilingual settings card; `lib/upstream.mjs` locates and parses the installed PTC declaration; `lib/preset.json` holds the persona and the fallback snapshot used only when that declaration is unavailable.
+Main files: `cordis.patch.yml` is the settings entry; `lib/index.mjs` manages revisions; `lib/model.mjs` builds isolated execution configurations; `lib/executor.mjs` extends the official bash executor for WSL/Zsh; `lib/terminal.mjs` runs the official shell tool the declaration names, with interruptible waits and the Zsh dialect; `lib/jobs-tool.mjs` and `lib/ask-user.mjs` run the official job and question tools the declaration names; `lib/host.mjs` resolves those official modules through the installed runtime; `lib/guard.mjs`, `lib/rules.mjs`, `lib/sleep-lint.mjs` and `lib/reachable.mjs` implement the pause/polling guard and interruptible waits; `lib/client.js` owns the bilingual settings card; `lib/upstream.mjs` locates and parses the installed PTC declaration; `lib/preset.json` holds the persona and the fallback snapshot used only when that declaration is unavailable.
 
 Uninstall with `plugin_manager` action `remove_bundle`, target `dsh-deep-ptc-mode`. Local link installations depend on their source directory: uninstall before deleting it.
 
