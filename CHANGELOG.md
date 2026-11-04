@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.6.0 — 2026-11-04
+
+- Derive the preset from the PTC preset the installed Harness declares (`@deepseek-ai/dsh-web-app/presets/ptc.patch.yml`) instead of freezing a copy. Official rows, settings and additions are inherited; Deep PTC still replaces only its persona, execution environment, reachability guard, and the official job/question wrappers.
+- Fix the failure after the DSH `0.2.2-rc.1` update: the frozen 1.5.0 snapshot still named the `@deepseek-ai/dsh-tool-subagent-control/list-agents` subpath, which `0.2.2-rc.1` removed, so the preset could not mount and existing Deep PTC sessions were reported as unusable. Sessions were never migrated or rewritten; they open again once the preset mounts.
+- Keep `lib/preset.json` only as a fallback snapshot and refresh it to `0.2.2-rc.1`; `npm run sync:snapshot` regenerates it from the installed declaration.
+- Declare every imported host package in `peerDependencies`, including `@deepseek-ai/dsh-web-app`: the host only routes a linked plugin's bare specifier to the installation when the name is peer-declared, so without it a `link:` install silently fell back to the snapshot. `npm run check` now fails if a peer is missing.
+- Match official rows recursively (persona, shell/executor rows, job and question rows may move into a group) and accept only a declaration whose id is `ptc`. Tests cover nested groups, a non-PTC declaration, and the peer-declaration guard.
+- `compatibility.json` now records the checked upstream release plus fixture hash; `scripts/check.mjs` verifies inheritance invariants and fallback/dedaration parity instead of exact-snapshot equality.
+- Add derivation tests for future compositions (unknown rows, reordering, missing shell or wrapped rows) and `scripts/check-preset.cjs`, a live-runtime check that every derived row resolves through the installed module graph.
+
 ## 1.5.0 — 2026-10-31
 
 - Enforce reachability in code. Foreground shell commands move to background jobs after `foregroundSeconds` (default 30, configurable 5–600); a larger requested timeout is capped. Commands still run; only the wait ends.

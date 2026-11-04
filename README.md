@@ -100,22 +100,24 @@ Prefer the UI, which uses revisioned, atomic Host form writes.
 
 ## Compatibility and development
 
-The rc.5 PTC template has 23 top-level rows. The template differs only in persona; runtime composition replaces the two platform-switched shell tools with one isolated execution group. Planning, compaction, pruning, web and delegation settings stay intact.
+Deep PTC is composed at load time from the PTC preset the installed Harness declares (`@deepseek-ai/dsh-web-app/presets/ptc.patch.yml`). Every official row is inherited as-is; Deep PTC replaces only its persona text, swaps the two platform-switched shell tools for one isolated execution group, adds the reachability guard, and wraps the official job and question tools. An official PTC change therefore reaches this mode without a plugin release, and a removed or renamed upstream module cannot leave a stale row behind. If the declaration cannot be resolved, read or parsed, the bundled `lib/preset.json` snapshot is used as a fallback and the fallback is logged.
 
-Version 1.3.0 adds Host/browser code and is no longer persona-only. `compatibility.json` records the verified upstream and fixture hash. The engines range is an installation floor, not proof that every future release was tested.
+Because the declaration is resolved through the host runtime, every host package the plugin imports is declared in `peerDependencies` — including `@deepseek-ai/dsh-web-app`. The host routes those names to the installation for a linked plugin; `npm run check` fails if one is missing, which is what keeps a `link:` installation on the live declaration instead of silently using the fallback snapshot. `compatibility.json` records the upstream release the checked fixture was taken from and its hash; `npm run check` verifies that the bundled fallback still derives the same preset as that fixture and that the inheritance invariants hold. The engines range is an installation floor, not proof that every future release was tested, so run `npm run check:upstream -- <path>` against a new release before trusting it.
 
 ```sh
 npm ci
 npm run check
 npm test
 npm run check:upstream -- /path/to/the/new/upstream/ptc.patch.yml
+npm run sync:snapshot                      # refresh lib/preset.json from the installed declaration
+PTC_RUNTIME_MODULES=/path/to/dsh/node_modules node scripts/check-preset.cjs  # loader-level row resolution on a real runtime
 PTC_RUNTIME_MODULES=/path/to/dsh/node_modules node scripts/check-reachability.mjs  # interruptible waits on a real runtime
 npm pack
 ```
 
-The checker parses `!!js` as data, compares nested upstream settings and fails on drift requiring review. Tests cover platforms, argv boundaries, confined WSL refusal, atomic settings writes and stale revisions, plus preset replacement and cleanup. Real-task evaluations should measure successful completion, unnecessary questions, scope expansion, background-work collection and latency.
+The checker parses `!!js` as data and asserts the derivation invariants: every official row survives unchanged except the persona, the shell rows and the two wrapped tools (including when the official preset nests them in a group); row ids stay unique; derivation is deterministic across nine platform/environment pairs. Tests cover future compositions as well (unknown rows, reordered rows, removed shell or wrapped rows), plus platforms, argv boundaries, confined WSL refusal, atomic settings writes and stale revisions. Real-task evaluations should measure successful completion, unnecessary questions, scope expansion, background-work collection and latency.
 
-Main files: `cordis.patch.yml` is the settings entry; `lib/index.mjs` manages revisions; `lib/model.mjs` builds isolated execution configurations; `lib/executor.mjs` adapts WSL/Zsh; `lib/terminal.mjs` wraps the official Bash/PowerShell tools with interruptible waits and provides the Zsh tool; `lib/jobs-tool.mjs` and `lib/ask-user.mjs` wrap the official job and question tools; `lib/guard.mjs`, `lib/rules.mjs`, `lib/sleep-lint.mjs` and `lib/reachable.mjs` implement the pause/polling guard and interruptible waits; `lib/client.js` owns the bilingual settings card; `lib/preset.json` contains the persona and official PTC template.
+Main files: `cordis.patch.yml` is the settings entry; `lib/index.mjs` manages revisions; `lib/model.mjs` builds isolated execution configurations; `lib/executor.mjs` adapts WSL/Zsh; `lib/terminal.mjs` wraps the official Bash/PowerShell tools with interruptible waits and provides the Zsh tool; `lib/jobs-tool.mjs` and `lib/ask-user.mjs` wrap the official job and question tools; `lib/guard.mjs`, `lib/rules.mjs`, `lib/sleep-lint.mjs` and `lib/reachable.mjs` implement the pause/polling guard and interruptible waits; `lib/client.js` owns the bilingual settings card; `lib/upstream.mjs` locates and parses the installed PTC declaration; `lib/preset.json` holds the persona and the fallback snapshot used only when that declaration is unavailable.
 
 Uninstall with `plugin_manager` action `remove_bundle`, target `dsh-deep-ptc-mode`. Local link installations depend on their source directory: uninstall before deleting it.
 

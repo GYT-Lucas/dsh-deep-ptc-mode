@@ -1,6 +1,6 @@
 {
   "name": "dsh-deep-ptc-mode",
-  "version": "1.5.0",
+  "version": "1.6.0",
   "description": "Deep PTC mode for DeepSeek Harness: no token rationing, code-enforced no-sleep (long commands move to the background and user messages interrupt waits), plans by task size (approval only for long tasks), asks instead of guessing intent, and runs commands in WSL, PowerShell, Zsh or Bash.",
   "type": "module",
   "keywords": [
@@ -70,12 +70,8 @@
     "test": "node --test",
     "check": "node scripts/check.mjs",
     "check:upstream": "node scripts/check.mjs --upstream",
-    "prepack": "npm run check && npm test"
-  },
-  "devDependencies": {
-    "js-yaml": "4.3.2",
-    "react": "18.3.1",
-    "react-test-renderer": "18.3.1"
+    "prepack": "npm run check && npm test",
+    "sync:snapshot": "node scripts/sync-snapshot.mjs"
   },
   "peerDependencies": {
     "@deepseek-ai/schemastery": "^3.18.4",
@@ -88,7 +84,8 @@
     "@deepseek-ai/dsh-client-ui-renderer": ">=0.2.1-rc.5",
     "@deepseek-ai/dsh-client-ui-settings": ">=0.2.1-rc.5",
     "@deepseek-ai/dsh-client-ui-slots": ">=0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-locale": ">=0.2.1-rc.5"
+    "@deepseek-ai/dsh-client-locale": ">=0.2.1-rc.5",
+    "@deepseek-ai/dsh-web-app": ">=0.2.1-rc.5"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/schemastery": {
@@ -123,6 +120,16 @@
     },
     "@deepseek-ai/dsh-client-locale": {
       "optional": true
+    },
+    "@deepseek-ai/dsh-web-app": {
+      "optional": true
     }
+  },
+  "dependencies": {
+    "js-yaml": "4.3.2"
+  },
+  "devDependencies": {
+    "react": "18.3.1",
+    "react-test-renderer": "18.3.1"
   }
 }

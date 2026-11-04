@@ -1,5 +1,6 @@
 {
-  "verifiedUpstream": "0.2.1-rc.5",
+  "mode": "derived",
   "source": "@deepseek-ai/dsh-web-app/presets/ptc.patch.yml",
-  "sha256": "9e355c947bf61c3d2fe9bf3214b386f83c0d99d37579ce22576d4b82cb6e1a2c"
+  "verifiedUpstream": "0.2.2-rc.1",
+  "snapshotSha256": "ce02148b1fd575cc93071744180468cd305bdcd50dbfdd3b9b0605c5281d283d"
 }

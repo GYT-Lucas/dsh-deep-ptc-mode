@@ -102,32 +102,35 @@ GitHub 地址：`github:lishize20040802-rgb/dsh-deep-ptc-mode`。该地址安装
 
 ## 兼容性与维护
 
-1.3.0 将上游 rc.5 的 23 项 PTC 配置保存为 `lib/preset.json`。除 persona 外，模板与该上游一致；运行时仅将两个互斥 shell 工具替换为一个带 `shell` 隔离的执行组。计划模式、压缩、裁剪、网页与子代理等其他配置保持一致。
+Deep PTC 在加载时依据已安装 Harness 声明的 PTC 预设（`@deepseek-ai/dsh-web-app/presets/ptc.patch.yml`）现场组合：官方行原样继承，仅替换 persona 文本、把两个互斥 shell 工具换成一个带 `shell` 隔离的执行组、加入可达性守卫，并包装官方 job 与提问工具。官方怎么改 PTC，本模式无需发版即可继承；官方改名或删除的模块也不会留下失效行。只有在该声明无法解析、读取或解析失败时，才退回内置的 `lib/preset.json` 快照，并在日志中说明。
 
-本版增加了必要的宿主/浏览器代码，不再是仅靠 persona 的声明式插件。`compatibility.json` 记录已验证上游和 fixture 哈希；`engines` 是安装下限，不能证明之后所有宿主都经过测试。
+官方声明通过宿主运行时解析，因此插件引用的宿主包都必须声明在 `peerDependencies` 中（包括 `@deepseek-ai/dsh-web-app`）：对 `link:` 本地安装，宿主只有看到 peer 声明才会把这些包名路由到已安装运行时。漏声明时 `npm run check` 会失败——这正是避免本地安装静默退回快照的关键。`compatibility.json` 记录 fixture 所取自的上游版本及其哈希；`npm run check` 会验证内置回退快照与 fixture 仍组合出同一预设，并检查继承不变量。`engines` 是安装下限，不能证明之后所有宿主都经过测试，遇到新版本先用 `npm run check:upstream -- <path>` 复核。
 
 ```sh
 npm ci
 npm run check
 npm test
 npm run check:upstream -- /path/to/ptc.patch.yml
+npm run sync:snapshot                      # 从已安装声明刷新 lib/preset.json 回退快照
+PTC_RUNTIME_MODULES=/path/to/dsh/node_modules node scripts/check-preset.cjs  # 用真实运行时检查每行模块可解析
 PTC_RUNTIME_MODULES=/path/to/dsh/node_modules node scripts/check-reachability.mjs  # 用真实运行时验证可打断等待
 npm pack
 ```
 
-检查器不会执行 YAML 的 `!!js`；比较官方插件结构、plan mode 和压缩等嵌套配置，发现差异即失败并要求复核。测试覆盖平台选择、命令边界、受限 WSL 拒绝、设置表单原子保存及并发版本约束，以及 preset 版本更换与清理。真实任务评测仍应记录成功率、无必要提问、范围控制、后台收尾和耗时。
+检查器把 `!!js` 当数据解析，并断言派生不变量：除 persona、shell 行与两个包装行外，官方行必须原样保留（官方把它们嵌进 group 时也同样处理）；行 id 唯一；九种平台/环境组合下派生结果确定。测试同时覆盖未来可能出现的组合变化（新增未知行、调整行顺序、删除 shell 行或包装行），以及平台选择、命令边界、受限 WSL 拒绝、设置表单原子保存及并发版本约束。真实任务评测仍应记录成功率、无必要提问、范围控制、后台收尾和耗时。
 
 ## 文件和卸载
 
 - `cordis.patch.yml`：宿主设置入口。
 - `lib/index.mjs`：配置 schema、preset 注册和版本切换。
-- `lib/model.mjs`：平台选择、参数、隔离配置和环境说明。
+- `lib/model.mjs`：平台选择、参数、隔离配置和环境说明，以及从官方声明派生 preset。
 - `lib/executor.mjs`：复用官方进程/沙箱语义的 WSL/Zsh 执行器。
 - `lib/terminal.mjs`：复用官方 Bash/PowerShell 终端工具，等待可被用户消息打断，并提供 Zsh 方言与工具名。
 - `lib/jobs-tool.mjs`、`lib/ask-user.mjs`：官方 job 工具与提问工具的包装，等待可被用户消息打断。
 - `lib/guard.mjs`、`lib/rules.mjs`、`lib/sleep-lint.mjs`、`lib/reachable.mjs`：拒绝长暂停与轮询的工具守卫，以及可打断等待的实现。
 - `lib/client.js`：中英文设置卡片。
-- `lib/preset.json`：persona 和上游 PTC 模板。
+- `lib/upstream.mjs`：定位并解析已安装的 PTC 声明。
+- `lib/preset.json`：persona，以及仅在声明不可用时的回退快照。
 - `test/`、`scripts/check.mjs`、`compatibility.json`：回归与上游差异检查。
 
 卸载使用插件管理器的 `remove_bundle`，目标为 `dsh-deep-ptc-mode`。本地 link 安装直接依赖源目录，应先卸载再删除目录。
