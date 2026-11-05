@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { deriveDeepPtc, personaFrom, PRESET_META, SHELL_ROWS, SHELL_TOOLS, walkRows } from '../lib/model.mjs';
+import { deriveDeepPtc, personaFrom, PRESET_META, SHELL_ROWS, SHELL_TOOLS, walkRows, isOfficialCapabilityRow } from '../lib/model.mjs';
 import { OFFICIAL_PACKAGE, OFFICIAL_PRESET_ID, parseOfficialPreset } from '../lib/upstream.mjs';
 
 const root = new URL('../', import.meta.url);
@@ -98,7 +98,7 @@ export function assertDerivation(upstream, preset, { environment = 'wsl', wslDis
     }
     const candidate = derivedById.get(row.id) ?? derivedRows.find(item => item.name === row.name);
     assert.ok(candidate, `official row ${row.id ?? row.name} is missing from the derived preset`);
-    if (isWrapped(row)) {
+    if (isWrapped(row) || isOfficialCapabilityRow(row)) {
       assert.match(candidate.name, /^dsh-deep-ptc-mode\//u);
       assert.equal(candidate.config?.upstream, row.name, `${row.id} loads the official module ${row.name}`);
       const officialConfig = row.config ?? {};
@@ -129,6 +129,8 @@ export function assertDerivation(upstream, preset, { environment = 'wsl', wslDis
   const guard = derivedRows.filter(row => row.name === 'dsh-deep-ptc-mode/guard');
   assert.equal(guard.length, 1, 'one reachability guard');
   assert.equal(guard[0].config.foregroundSeconds, foregroundSeconds);
+  const compatibility = derivedRows.filter(row => row.name === 'dsh-deep-ptc-mode/tool-compatibility');
+  assert.equal(compatibility.length, 1, 'one scoped compatibility observer, no extra capability');
   assert.equal(preset.description.endsWith(`当前环境：${environment}${environment === 'wsl' && wslDistribution ? ` (${wslDistribution})` : ''}`), true);
 
   // Top-level order among untouched rows is preserved.

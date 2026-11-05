@@ -1,7 +1,7 @@
 {
   "name": "dsh-deep-ptc-mode",
-  "version": "1.6.1",
-  "description": "Deep PTC mode for DeepSeek Harness: no token rationing, code-enforced no-sleep (long commands move to the background and user messages interrupt waits), plans by task size (approval only for long tasks), asks instead of guessing intent, and runs commands in WSL, PowerShell, Zsh or Bash.",
+  "version": "1.7.1",
+  "description": "Plugin-first Deep PTC for DSH: multi-plugin cooperation, current official PTC fallback and interruptible background jobs. / DSH 深度 PTC：外部插件优先、多插件协作、动态官方工具兜底，保留后台运行与随时插话。",
   "type": "module",
   "keywords": [
     "dsh-plugin",
@@ -11,7 +11,10 @@
     "agent-team",
     "subagent",
     "clarification",
-    "background-jobs"
+    "background-jobs",
+    "plugin-compatibility",
+    "tool-cooperation",
+    "official-ptc-fallback"
   ],
   "license": "MIT",
   "author": {
@@ -38,7 +41,7 @@
   ],
   "engines": {
     "node": ">=24",
-    "dsh": ">=0.2.1-rc.5"
+    "dsh": ">=0.2.2-rc.1"
   },
   "dsh": {
     "manifestVersion": 1,
@@ -62,6 +65,8 @@
     "./jobs-tool": "./lib/jobs-tool.mjs",
     "./ask-user": "./lib/ask-user.mjs",
     "./guard": "./lib/guard.mjs",
+    "./official-tools": "./lib/official-tools.mjs",
+    "./tool-compatibility": "./lib/tool-compatibility.mjs",
     "./environment": "./lib/environment.mjs",
     "./client": "./lib/client.js",
     "./package.json": "./package.json"
@@ -75,12 +80,12 @@
   },
   "peerDependencies": {
     "@deepseek-ai/schemastery": "^3.18.4",
-    "@deepseek-ai/dsh-client-ui-renderer": ">=0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-settings": ">=0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-slots": ">=0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-locale": ">=0.2.1-rc.5",
-    "@deepseek-ai/dsh-web-app": ">=0.2.1-rc.5",
-    "@deepseek-ai/dsh-base": ">=0.2.1-rc.5"
+    "@deepseek-ai/dsh-client-ui-renderer": ">=0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-settings": ">=0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-slots": ">=0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-locale": ">=0.2.2-rc.1",
+    "@deepseek-ai/dsh-web-app": ">=0.2.2-rc.1",
+    "@deepseek-ai/dsh-base": ">=0.2.2-rc.1"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/schemastery": {

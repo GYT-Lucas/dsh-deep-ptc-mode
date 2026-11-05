@@ -1,15 +1,58 @@
 # Deep PTC mode
 
-[中文](README.zh.md) · MIT · **1.6.1**
+[中文](README.zh.md) · MIT · **1.7.1**
 
-A DeepSeek Harness agent preset with exactly the built-in PTC tool surface and a different way of working: the model uses its full capability, stays interruptible while work runs, asks for approval only when a task is long, asks you instead of guessing, and runs commands in the environment you choose.
+**Let plugins cooperate. Keep current official PTC tools as the fallback. Stay interruptible while work runs.**
+
+Deep PTC is a DeepSeek Harness agent preset built for a plugin ecosystem. It first looks for a suitable tool among the available external plugins, then continues with the current official PTC capability when no enhancement fits or a provider fails. Multiple plugins can contribute different parts of a task, each using its own schemas, discovery and result contracts. Deep PTC adds no task tools of its own.
+
+The same working rules remain: use the model's capability thoroughly, move long commands into managed background jobs, respond to your messages while work runs, plan by task size, clarify intent, and execute in your selected WSL / PowerShell / Zsh / Bash environment.
+
+## A mode for “everything is a plugin”
+
+Compatibility has two directions: follow the installed official PTC composition as it evolves, and cooperate with external tool plugins instead of assuming a fixed tool inventory. This follows DSH's composable, “everything is a plugin” approach: the mode supplies working rules and recovery guidance, while tool providers retain ownership of their capabilities.
+
+| Responsibility | How the plugins cooperate |
+| --- | --- |
+| External capabilities first | Search the available plugin capabilities for the needed function; use a provider's own discovery/SDK loader when appropriate |
+| Multiple providers together | Use different plugins for different operations in the same task; no single enhancement plugin is required |
+| Current official fallback | Continue through the installed Harness's official PTC tools if an enhancement is absent or fails |
+| Shared task discipline | Preserve interruptible background work, clarification, planning and the selected execution environment |
+
+An extension must publish into the `deep-ptc` scope and support the installed host. Keep official fallbacks visible in the provider's own configuration where supported. This is cooperative task-level selection, not a guarantee that every plugin or replacement executor is interchangeable. OPS is one possible provider, not a bundled dependency or a completed integration claim.
+
+The official fallback retains the 1.6.1 derivation mechanism: each preset load or rebuild reads the PTC declaration from the currently installed Harness and follows its module names and configuration. The bundled snapshot is used only if loading, parsing or derivation fails, with a warning. Reload after an official upgrade and use a new preset revision; existing sessions are not forcibly switched. DSH support starts at `>=0.2.2-rc.1` with no upper bound; future host APIs still require verification.
+
+## Two-layer tool compatibility (1.7.0)
+
+Deep PTC adds no task tools. First search the available extension/plugin capabilities for the required function, using the provider's own discovery or SDK loader when needed, and prefer a suitable enhancement. If no enhancement fits or a provider fails, continue through an admitted inherited official PTC tool.
+
+The runtime tracks official registration provenance and final outcomes, then supplies bounded per-agent recovery guidance on the next model step. The model rebuilds the call from the fallback's actual schema; no alias, argument translation, output conversion or silent replay is performed. Check receipts and read back state before continuing partially completed writes or commands. Empty searches and active background/promoted jobs are not provider failures. Denials, cancellation and guard decisions stay authoritative.
+
+This layer does not replace the tool executor, lift another plugin's restrictions, or call captured private bodies. Foreground caps, steering, managed jobs and completion wakeups, timed questions, planning, persona and the selected shell remain unchanged. Third-party executors retain their own background/cancellation contracts; the official-tool wait wrapper cannot automatically control them.
+
+Providers must already publish tools into the `deep-ptc` scope and should retain official fallbacks through their own configuration. This does not install OPS or bypass its host-version and custom-preset integration requirements. Hidden/removed capabilities and an unavailable whole executor cannot be recovered by overriding authorization.
+
+Enabled by default. Optional settings under the existing `deep-ptc-settings` row:
+
+```yaml
+toolCompatibility: true
+toolPreferences:
+  - preferred: ops_grep
+    fallback: [grep]
+```
+
+Names must match the installed provider's real catalog. Preferences guide choices between existing capabilities, not dispatch mappings. Settings apply to new preset revisions; existing sessions retain their original revision.
+
+`node --test` covers recovery distinctions, scope isolation, reloads, live admission and unchanged execution configuration. `scripts/check-compatibility.cjs` exercises the real DSH pipeline and official web tools with an offline web-service double. The reachability integration runs with compatibility enabled. These checks do not constitute an online-model or actual-OPS end-to-end evaluation.
 
 ## Overview
 
-Deep PTC targets five common problems with the built-in PTC mode:
+Deep PTC targets six common problems in everyday agent work:
 
 | Problem | What Deep PTC does |
 | --- | --- |
+| Enhanced tools and presets do not naturally cooperate | Search external plugin capabilities first, combine suitable providers, and recover through the dynamically inherited official PTC baseline |
 | The model rations tokens, skipping reads and tests, and quality suffers | The persona states that it works at DeepSeek with an unlimited token budget in this mode: never skip a read, search, command or check to save tokens. Guardrails forbid padding, verbosity and context blow-ups |
 | Once work starts, the model sleeps or waits and ignores your messages | Enforced in code: foreground commands move to the background after 30 s, a message from you moves the waiting command to the background at once so the model reads it, and long sleeps are refused; job completion wakes the model (see "Enforced reachability" below) |
 | Every task starts the same way regardless of size | Three bands by estimated time: up to 5 minutes, plan internally and act; 5–20 minutes, show the plan and start without approval; over 20 minutes, show the plan and wait for approval |
@@ -74,13 +117,13 @@ A prompt changes the model's working tendency, not the real token limit or billi
 
 ## Install or upgrade
 
-Requires Node `>=24` and DSH `>=0.2.1-rc.5`. Windows desktop rc.5 was used for real WSL/PowerShell command checks. macOS/Zsh configuration, argv and tool mounting were checked; native macOS execution has not been verified on this Windows host.
+Requires Node `>=24` and DSH `>=0.2.2-rc.1`. Windows desktop rc.5 was used for real WSL/PowerShell command checks. macOS/Zsh configuration, argv and tool mounting were checked; native macOS execution has not been verified on this Windows host.
 
 ```js
-plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.6.1" })
+plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.7.1" })
 // Or from a local checkout or archive:
 plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-deep-ptc-mode" })
-// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.6.1.tgz"
+// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.7.1.tgz"
 ```
 
 Repository locator: `github:lishize20040802-rgb/dsh-deep-ptc-mode`. It installs content actually published there; a local upgrade does not publish to GitHub or npm.

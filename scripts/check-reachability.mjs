@@ -51,6 +51,8 @@ await root.plugin(terminal, { upstream: '@deepseek-ai/dsh-tool-bash' });
 await root.plugin(UserQuestionService, {});
 await root.plugin(askUser, { upstream: '@deepseek-ai/dsh-tool-ask-user', options: { mode: 'timed', timeout: 120 } });
 await root.plugin(guard, { foregroundSeconds: 6, maxQuestionSeconds: 300, maxPollsPerProgram: 3 });
+// The cooperation observer must not change shell waits, questions, jobs or steering.
+await root.plugin(await load('../lib/tool-compatibility.mjs'), {});
 
 let calls = 0;
 const run = async (name, args) => {

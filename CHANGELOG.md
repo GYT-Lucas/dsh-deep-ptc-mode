@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.7.1 — 2026-11-05
+
+- Publish the plugin-cooperation release with bilingual README introductions and package/repository descriptions: external capabilities first, multiple providers working together, and the current official PTC composition as fallback, following the “everything is a plugin” composition model. Preserve the original interruptible background-work behavior and document integration boundaries.
+- Set the DSH engine and DSH peer-package minimum to `>=0.2.2-rc.1`, matching the currently installed runtime, with no upper bound. Synchronize the lockfile and install documentation.
+- Clarify that official fallback capabilities still derive from the installed PTC declaration at load/rebuild time, following the 1.6.1 mechanism; snapshots remain a logged fallback. No tool-selection, reachability, execution or planning code changes.
+
+## 1.7.0 — 2026-11-05
+
+- Add two-layer task-level tool cooperation: search and prefer an available extension capability for the function, then use an admitted inherited official PTC capability if no enhancement fits or a provider fails. No new capability, alias, argument translation, result conversion or silent replay is registered.
+- Observe final host results and publish bounded, agent-local recovery context. Preserve denials, cancellation, code-less pre-dispatch guard failures, partial effects and active background jobs; retain original tool schemas, output contracts, conditions and execution ownership. Successful calls and provider replacement clear stale failure evidence.
+- Tag official capability registrations by provenance while loading their actual upstream modules/config. Keep activation options (`when`) and exact registration disposers when adapting the tool registry. Official web search/fetch remain official and retain provider-readiness gating.
+- Add optional `toolCompatibility` (default true) and `toolPreferences` settings. Explicit preferences describe choices between existing tools, not a dispatch mapping. Hidden/removed fallbacks and a replaced/unloaded whole executor are not bypassed.
+- Keep persona, task planning, WSL/PowerShell/Zsh/Bash selection, foreground cap, steering, managed jobs, completion wakeups and timed questions unchanged. Add offline unit coverage and an actual-host compatibility harness; run the existing reachability integration with the compatibility observer enabled.
+
 ## 1.6.1 — 2026-11-04
 
 - Follow the official modules instead of naming them. The shell, job and question wrappers no longer import `@deepseek-ai/dsh-tool-bash`, `dsh-tool-pwsh`, `dsh-tool-jobs` or `dsh-tool-ask-user`: each derived row carries the module name and options of the official row it replaces (`upstream`, `options`), and the wrapper loads that module through the installed runtime's module graph with the official plugin's own `inject` and `Config`. A renamed or replaced official tool is followed rather than breaking the mount.

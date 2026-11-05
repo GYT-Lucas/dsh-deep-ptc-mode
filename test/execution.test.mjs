@@ -70,7 +70,7 @@ test('official composition changes are inherited instead of tripping a drift gat
   changed.plugins.find(row => row.id === 'tool-web').config.fetch = false;
   changed.plugins.push({ id: 'tool-future', name: '@deepseek-ai/dsh-tool-future' });
   const drifted = deriveDeepPtc(changed, { environment: 'wsl', wslDistribution: '' }, 'win32').preset;
-  assert.equal(drifted.plugins.find(row => row.id === 'tool-web').config.fetch, false);
+  assert.equal(drifted.plugins.find(row => row.id === 'tool-web').config.options.fetch, false);
   assert.ok(drifted.plugins.some(row => row.id === 'tool-future'));
   assertDerivation(changed, drifted, { environment: 'wsl' });
 });
@@ -115,5 +115,5 @@ test('teardown during asynchronous registration releases the late definition exa
 });
 
 test('package and verified fixture checks pass', () => {
-  assert.equal(check().version, '1.6.1');
+  assert.equal(check().version, '1.7.1');
 });

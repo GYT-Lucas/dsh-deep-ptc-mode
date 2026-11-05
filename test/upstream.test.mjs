@@ -56,7 +56,7 @@ test('inherits unknown future rows untouched', () => {
   const upstream = structuredClone(current());
   upstream.plugins.push({ id: 'tool-future', name: '@deepseek-ai/dsh-tool-future', config: { mode: 'next' } });
   const { preset } = derive(upstream);
-  assert.deepEqual(preset.plugins.find(row => row.id === 'tool-future'), { id: 'tool-future', name: '@deepseek-ai/dsh-tool-future', config: { mode: 'next' } });
+  assert.deepEqual(preset.plugins.find(row => row.id === 'tool-future'), { id: 'tool-future', name: 'dsh-deep-ptc-mode/official-tools', config: { upstream: '@deepseek-ai/dsh-tool-future', options: { mode: 'next' } } });
   assertDerivation(upstream, preset);
 });
 
