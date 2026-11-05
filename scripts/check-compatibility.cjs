@@ -20,6 +20,7 @@ const local = name => import(pathToFileURL(path.join(__dirname, '..', 'lib', nam
   const { default: Prompt } = await load('@deepseek-ai/dsh-system-prompt');
   const { ToolRuntime, defineTool } = await load('@deepseek-ai/dsh-tools');
   const { Session } = await load('@deepseek-ai/dsh-session');
+  const { HarnessError } = await load('@deepseek-ai/dsh-llm');
   const root = new Context();
   const fibers = [];
   const mount = async (plugin, config) => { const fiber = root.plugin(plugin, config); fibers.push(fiber); await fiber; };
@@ -38,15 +39,35 @@ const local = name => import(pathToFileURL(path.join(__dirname, '..', 'lib', nam
   await mount(Prompt, {});
   await mount(Web);
   await mount(ToolRuntime, {});
+  const {applyOfficial:loadWithRollback}=await local('host');
+  const rollback=await loadWithRollback(root,pathToFileURL(path.join(__dirname,'fixtures','partial-apply-plugin.mjs')).href,{fail:false},child=>child,{fail:true});
+  assert.equal(root.tools.definitions().filter(def=>def.name==='partial_apply_probe').length,1,'fallback must dispose partial registrations');
+  await rollback.dispose();
+  assert.equal(root.tools.get('partial_apply_probe'),undefined);
+
   await mount((await load('@deepseek-ai/dsh-commands')).default);
   await mount((await load('@deepseek-ai/dsh-session-projection')).default);
-  await mount(await local('official-tools'), { upstream: pathToFileURL(path.join(__dirname, 'fixtures', 'class-tool-provider.mjs')).href });
+  const { applyOfficial } = await local('host');
+  await applyOfficial(root, pathToFileURL(path.join(__dirname, 'fixtures', 'class-tool-provider.mjs')).href, undefined, child => child);
   await mount(await load('@deepseek-ai/dsh-tool-executor-native'));
-  await mount(await local('official-tools'), { upstream: '@deepseek-ai/dsh-tool-web' });
+  // An official tool the profile composes outside the PTC preset, loaded by the real loader.
+  class WorkingDirectory extends Service {
+    constructor(ctx) { super(ctx, 'workingDirectory'); }
+    resolve() { return process.cwd(); }
+    async ensure() { return process.cwd(); }
+  }
+  await mount(WorkingDirectory);
+  const { default: Loader, Group } = await load('@deepseek-ai/cordis-plugin-loader');
+  await mount(Loader, { baseUrl: pathToFileURL(path.join(__dirname, '..', 'cordis.patch.yml')).href });
+  root.loader.builtins.group = Group;
+  root.loader.internal = undefined;
+  await root.loader.create({ id: 'tool-working-directory', name: '@deepseek-ai/dsh-tool-working-directory' });
+  await root.loader.await();
+  await mount(await load('@deepseek-ai/dsh-tool-web'));
   const agent = { id: 'compatibility-test', ctx: root, session: Session.create('compatibility-test') };
   const other = { id: 'other-test', ctx: root, session: Session.create('other-test') };
   for (let i = 0; i < 100 && !root.tools.get('web_fetch', agent); i++) await new Promise(resolve => setTimeout(resolve, 10));
-  assert.ok(root.tools.get('web_fetch', agent), 'the wrapped official plugin must actually mount');
+  assert.ok(root.tools.get('web_fetch', agent), 'the official plugin must actually mount');
   const { isOfficialTool } = await local('tool-policy');
   assert.ok(isOfficialTool(root.tools.get('class_official_probe', agent)), 'class-style official tools retain declaration provenance');
   const controller = new AbortController();
@@ -58,10 +79,11 @@ const local = name => import(pathToFileURL(path.join(__dirname, '..', 'lib', nam
   const extension = defineTool({ name: 'extension_fetch', description: 'Test-only replacement fetch provider',
     parameters: { target: { type: 'string', required: true } },
     output: { schema: { type: 'string' }, render: (_args, value) => [{ type: 'text', text: value }] },
-    async execute() { extensionCalls++; throw new Error('test worker unavailable'); } });
+    async execute() { extensionCalls++; throw new HarnessError('test worker unavailable', 'WORKER_UNAVAILABLE'); } });
+  extension.deepPtc={provider:'test-extension'};
   const removeExtension = root.tools.register(extension);
   const before = root.tools.schemas(agent);
-  const observer = root.plugin(await local('tool-compatibility'), { preferences: [{ preferred: 'extension_fetch', fallback: ['web_fetch'] }] });
+  const observer = root.plugin(await local('tool-compatibility'), { preferences: [{ preferred: 'extension_fetch', fallback: ['web_fetch'] }], officialModules: [{ name: '@deepseek-ai/dsh-tool-web' }] });
   await observer;
   for (let i = 0; i < 100 && !root.tools.get('deep_ptc_tools', agent); i++) await new Promise(resolve => setTimeout(resolve, 10));
   assert.ok(root.tools.get('deep_ptc_tools', agent), 'directory mounted');
@@ -76,8 +98,16 @@ const local = name => import(pathToFileURL(path.join(__dirname, '..', 'lib', nam
     const assembly = await root.systemPrompt.assemble({ scope, ...scope === agent ? { toolSet: step } : {} });
     return assembly.contexts.find(row => row.name === 'deep-ptc:tool-recovery')?.text ?? '';
   };
+  const rootOfficial = await run('deep_ptc_tools', { action: 'search', query: 'working directory' });
+  assert.equal(rootOfficial.value.layer, 'official', 'a root official tool is not presented as an extension');
+  assert.equal(rootOfficial.value.results[0].name, 'working_directory');
   const directory = await run('deep_ptc_tools', { action: 'search', query: 'fetch' });
   assert.equal(directory.value.layer, 'external');
+  // Wrong arguments fail schema validation inside the tool call and say nothing about the provider.
+  for (let i = 0; i < 4; i++) assert.equal((await run('extension_fetch', {})).isError, true);
+  assert.equal(extensionCalls, 0, 'schema validation rejects before the body runs');
+  assert.doesNotMatch(await context(agent), /Quarantined/, 'invalid arguments must not quarantine a working provider');
+  // The test provider's error reports a missing worker, so it is quarantined at the first failure.
   const failed = await run('extension_fetch', { target: 'https://example.test/' });
   assert.equal(failed.isError, true);
   assert.match(await context(agent), /Quarantined/);

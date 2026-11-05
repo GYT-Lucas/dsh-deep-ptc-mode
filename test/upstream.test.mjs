@@ -56,7 +56,7 @@ test('inherits unknown future rows untouched', () => {
   const upstream = structuredClone(current());
   upstream.plugins.push({ id: 'tool-future', name: '@deepseek-ai/dsh-tool-future', config: { mode: 'next' } });
   const { preset } = derive(upstream);
-  assert.deepEqual(preset.plugins.find(row => row.id === 'tool-future'), { id: 'tool-future', name: 'dsh-deep-ptc-mode/official-tools', config: { upstream: '@deepseek-ai/dsh-tool-future', options: { mode: 'next' } } });
+  assert.deepEqual(preset.plugins.find(row => row.id === 'tool-future'), { id: 'tool-future', name: '@deepseek-ai/dsh-tool-future', config: { mode: 'next' } });
   assertDerivation(upstream, preset);
 });
 
@@ -202,4 +202,14 @@ test('every host package the plugin imports is peer-declared', () => {
   const required = requiredPeerPackages();
   assert.ok(required.includes('@deepseek-ai/dsh-web-app'), 'the official declaration package is routed through peers');
   assert.doesNotThrow(() => assertPeerCoverage());
+});
+
+test('running-host registry compositions override filesystem assumptions and are reread',async()=>{
+ const {loadCurrentPreset}=await import('../lib/upstream.mjs');
+ const saved=process.env.DSH_DEEP_PTC_PRESET;delete process.env.DSH_DEEP_PTC_PRESET;
+ try {
+  let name='runtime_a';const registry={readDocument:async id=>({agentPreset:id,name:'Host PTC',content:`- id: dynamic\n  name: ${name}\n`})};
+  assert.equal((await loadCurrentPreset(registry)).preset.plugins[0].name,'runtime_a');
+  name='runtime_b';assert.equal((await loadCurrentPreset(registry)).preset.plugins[0].name,'runtime_b');
+ }finally{if(saved===undefined)delete process.env.DSH_DEEP_PTC_PRESET;else process.env.DSH_DEEP_PTC_PRESET=saved;}
 });

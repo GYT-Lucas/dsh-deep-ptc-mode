@@ -3,3 +3,7 @@ node_modules/
 .DS_Store
 Thumbs.db
 *.tgz
+
+# Local audit handoffs must never be published
+HANDOFF.md
+.handoff/

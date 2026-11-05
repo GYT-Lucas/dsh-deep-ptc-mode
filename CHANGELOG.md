@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.7.3 — 2026-11-05
+
+- 优先读取运行宿主的官方预设注册表并自动检测更新；修复官方工具误隔离、暂停误判和桌面重载按钮的依赖/返回值处理。保留后台运行与插话。
+
+- Protect official tools from stale quarantine across guard, search, SDK, loading and reporting. Keep unattributed tools available; only positively attributed external providers can be quarantined.
+- Prefer the running host’s public PTC registry and detect PTC/base declaration changes automatically without a pinned inventory. Invalidate changed module-source caches; avoid rebuilding on unrelated settings events.
+- Integrate 125 pause adversarial cases, align language-aware expectations, defer oversized schemas to the full host SDK, tolerate missing optional output metadata, distinguish missing executables, and dispose partially mounted adapters before official fallback.
+- Fix the composer reset action: inject the remote namespace explicitly and unwrap the gateway `{ ok, value }` response before checking the command result. Verified by clicking the actual desktop button.
+
+
+- Keep every official row exactly as declared. Only the persona, shell, job and question rows differ; the `official-tools` wrapper is gone. The host's compatibility preflight, composition diagnostics and plugin inventory again see the official modules.
+- Attribute tools from the installed source of the composed rows, without running it: official tools are recognised wherever they are composed, and a failed third-party tool is reported under its own plugin.
+- Fail open: a failure in the quarantine, catalog, recovery-context or reachability hooks leaves tool calls and prompts as the host would have them. Previously a throwing guard failed every tool.
+- If a wrapped official plugin fails with Deep PTC behaviour or rejects Deep PTC's options, run it as declared. If the preset still cannot mount, fall back to safe mode: the official composition with the Deep PTC persona. A malformed `toolPreferences` is ignored with a warning.
+- Add `scripts/check-parity.mjs`: official PTC and Deep PTC on a real host composition, compared tool by tool, with third-party plugins that know nothing about Deep PTC.
+- Read tool error codes from `error.info.code`, where the host reports them. Every code-based decision was silently skipped before, so one invalid-arguments call quarantined a working tool.
+- Quarantine only a capability that is clearly unavailable, or that fails three times in a row with temporary or unexplained errors; a success clears the count. Wrong input, a failed build reported in a normal result, and names no plugin provides no longer quarantine anything. The persona allows correcting input and retrying temporary failures twice.
+- Recognise official tools outside the PTC preset (the profile root composition, such as `lsp`, `terminal_*` and `session_*`) by reading the names their installed packages declare, without running them. Those tools stay in the SDK and are never quarantined. Shell rows kept by the environment fallback are official too.
+- Run tool discovery and quarantine in a child fiber: a missing session module, service or API turns that layer off with a log line instead of rejecting the preset mount.
+
 ## 1.7.2 — 2026-11-05
 
 - Add local tool/skill discovery and complete-schema loading with bounded pages, byte budgets and recent selections. Reuse the installed official PTC SDK renderer, reducing only its untouched generated section. Skill discovery reads metadata and invocation controls; the official loader owns skill bodies.

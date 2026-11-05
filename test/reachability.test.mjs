@@ -64,12 +64,12 @@ test('run_code programs may pause briefly but not wait on timers or block the th
   assert.equal(programPauseIssue("import { setTimeout } from 'node:timers/promises'; await setTimeout(2000)"), undefined);
   assert.equal(programPauseIssue('setTimeout(() => done(), 0)'), undefined);
   assert.match(programPauseIssue('await new Promise(r => setTimeout(r, 60_000))'), /60000 ms/);
-  assert.match(programPauseIssue('const sleep = ms => new Promise(r => setTimeout(r, ms)); await sleep(500)'), /not a numeric literal/);
-  assert.match(programPauseIssue('setInterval(check, 1000)'), /setInterval/);
+  assert.equal(programPauseIssue('const sleep = ms => new Promise(r => setTimeout(r, ms)); await sleep(500)'), undefined);
+  assert.equal(programPauseIssue('setInterval(check, 1000)'), undefined);
   assert.match(programPauseIssue('Atomics.wait(view, 0, 0)'), /Atomics/);
-  assert.match(programPauseIssue('import time\ntime.sleep(30)'), /30 s/);
+  assert.match(programPauseIssue('import time\ntime.sleep(30)', 'python'), /30 s/);
   assert.equal(programPauseIssue('import asyncio\nawait asyncio.sleep(1)'), undefined);
-  assert.match(programPauseIssue('from time import sleep\nsleep(10)'), /10 s/);
+  assert.match(programPauseIssue('from time import sleep\nsleep(10)', 'python'), /10 s/);
   assert.equal(programPauseIssue('const sleepy = "sleep(100)"'), undefined);
 });
 
@@ -187,9 +187,9 @@ test('the preset wraps the official shell, job and question modules and caps the
   assert.deepEqual(group.config[1], { id: 'tool-bash', name: 'dsh-deep-ptc-mode/terminal', config: { upstream: '@deepseek-ai/dsh-tool-bash' } });
   assert.deepEqual(preset.plugins.find(row => row.id === 'reachability').config, { foregroundSeconds: 45 });
   assert.deepEqual(preset.plugins.find(row => row.id === 'tool-jobs').config,
-    { upstream: '@deepseek-ai/dsh-tool-jobs', options: { waitTimeoutMs: 45000, maxWaitTimeoutMs: 45000 } });
+    { upstream: '@deepseek-ai/dsh-tool-jobs', overrides: { waitTimeoutMs: 45000, maxWaitTimeoutMs: 45000 } });
   assert.deepEqual(preset.plugins.find(row => row.id === 'tool-ask-user').config,
-    { upstream: '@deepseek-ai/dsh-tool-ask-user', options: { mode: 'timed', timeout: 120 } });
+    { upstream: '@deepseek-ai/dsh-tool-ask-user', overrides: { mode: 'timed', timeout: 120 } });
   const pwsh = configuredPreset(template, { environment: 'powershell', wslDistribution: '' }, 'win32');
   assert.deepEqual(pwsh.plugins.find(row => row.id === 'execution').config[1].config, { upstream: '@deepseek-ai/dsh-tool-pwsh' });
   assert.deepEqual(pwsh.plugins.find(row => row.id === 'execution').config[0],

@@ -1,7 +1,7 @@
 {
   "name": "dsh-deep-ptc-mode",
-  "version": "1.7.2",
-  "description": "Lightweight Deep PTC: tool/skill discovery, multi-plugin cooperation, official fallback and interruptible jobs. / 轻量深度 PTC：工具与技能按需发现、多插件协作、官方兜底、后台可插话。",
+  "version": "1.7.3",
+  "description": "Lightweight adaptive Deep PTC: live host presets, plugin cooperation and interruptible jobs. / 轻量自适配深度 PTC：动态宿主预设、插件协作与官方兜底、后台可插话。",
   "type": "module",
   "keywords": [
     "dsh-plugin",
@@ -37,7 +37,8 @@
     "README.md",
     "README.zh.md",
     "CHANGELOG.md",
-    "assets/icon.png"
+    "assets/icon.png",
+    "TEST_REPORT.md"
   ],
   "engines": {
     "node": ">=24",
@@ -66,7 +67,6 @@
     "./jobs-tool": "./lib/jobs-tool.mjs",
     "./ask-user": "./lib/ask-user.mjs",
     "./guard": "./lib/guard.mjs",
-    "./official-tools": "./lib/official-tools.mjs",
     "./tool-compatibility": "./lib/tool-compatibility.mjs",
     "./environment": "./lib/environment.mjs",
     "./client": "./lib/client.js",
@@ -76,6 +76,7 @@
     "test": "node --test",
     "check": "node scripts/check.mjs",
     "check:upstream": "node scripts/check.mjs --upstream",
+    "check:parity": "node scripts/check-parity.mjs",
     "prepack": "npm run check && npm test",
     "sync:snapshot": "node scripts/sync-snapshot.mjs"
   },

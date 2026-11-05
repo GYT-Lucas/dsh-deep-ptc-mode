@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { deriveDeepPtc, personaFrom, PRESET_META, SHELL_ROWS, SHELL_TOOLS, walkRows, isOfficialCapabilityRow } from '../lib/model.mjs';
+import { deriveDeepPtc, personaFrom, PRESET_META, SHELL_ROWS, SHELL_TOOLS, walkRows } from '../lib/model.mjs';
 import { OFFICIAL_PACKAGE, OFFICIAL_PRESET_ID, parseOfficialPreset } from '../lib/upstream.mjs';
 
 const root = new URL('../', import.meta.url);
@@ -96,9 +96,9 @@ export function assertDerivation(upstream, preset, { environment = 'wsl', wslDis
         `official shell row ${row.id} must be replaced`);
       continue;
     }
-    const candidate = derivedById.get(row.id) ?? derivedRows.find(item => item.name === row.name);
+    const candidate = derivedById.get(row.id) ?? derivedRows.find(item => item.name === row.name || item.config?.upstream === row.name);
     assert.ok(candidate, `official row ${row.id ?? row.name} is missing from the derived preset`);
-    if (isWrapped(row) || isOfficialCapabilityRow(row)) {
+    if (isWrapped(row)) {
       assert.match(candidate.name, /^dsh-deep-ptc-mode\//u);
       assert.equal(candidate.config?.upstream, row.name, `${row.id} loads the official module ${row.name}`);
       const officialConfig = row.config ?? {};

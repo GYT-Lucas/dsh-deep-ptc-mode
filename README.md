@@ -1,10 +1,11 @@
 # Deep PTC mode
 
-[中文](README.zh.md) · MIT · **1.7.2**
+[中文](README.zh.md) · MIT · **1.7.3**
 
+[1.7.3 实测汇总 / Test summary](TEST_REPORT.md)
 **Let plugins cooperate. Keep current official PTC tools as the fallback. Stay interruptible while work runs.**
 
-Deep PTC is a DeepSeek Harness agent preset built for a plugin ecosystem. It first looks for a suitable tool among the available external plugins, then continues with the current official PTC capability when no enhancement fits or a provider fails. Multiple plugins can contribute different parts of a task, each using its own schemas, discovery and result contracts. Deep PTC adds no task tools of its own.
+Deep PTC is a DeepSeek Harness agent preset built for a plugin ecosystem. It first looks for a suitable tool among the available external plugins, then continues with the running host’s dynamically discovered official PTC capability when no enhancement fits or a provider fails. Multiple plugins can contribute different parts of a task, each using its own schemas, discovery and result contracts. Deep PTC adds no task tools of its own.
 
 The same working rules remain: use the model's capability thoroughly, move long commands into managed background jobs, respond to your messages while work runs, plan by task size, clarify intent, and execute in your selected WSL / PowerShell / Zsh / Bash environment.
 
@@ -21,15 +22,15 @@ Compatibility has two directions: follow the installed official PTC composition 
 
 An extension must publish into the `deep-ptc` scope and support the installed host. Keep official fallbacks visible in the provider's own configuration where supported. This is cooperative task-level selection, not a guarantee that every plugin or replacement executor is interchangeable. OPS is one possible provider, not a bundled dependency or a completed integration claim.
 
-The official fallback retains the 1.6.1 derivation mechanism: each preset load or rebuild reads the PTC declaration from the currently installed Harness and follows its module names and configuration. The bundled snapshot is used only if loading, parsing or derivation fails, with a warning. Reload after an official upgrade and use a new preset revision; existing sessions are not forcibly switched. DSH support starts at `>=0.2.2-rc.1` with no upper bound; future host APIs still require verification.
+The official fallback retains the 1.6.1 derivation mechanism: the plugin reads the running host’s PTC declaration and checks for changes every five seconds; only changed declarations or this plugin’s settings rebuild the preset and follows its module names and configuration. The bundled snapshot is used only if loading, parsing or derivation fails, with a warning. Reload after an official upgrade and use a new preset revision; existing sessions are not forcibly switched. DSH support starts at `>=0.2.2-rc.1` with no upper bound; future host APIs still require verification.
 
 ## 1.7.2: lightweight, on-demand tool orchestration
 
 One tool/skill directory, `deep_ptc_tools`, coordinates discovery. Task operations still belong to external providers and the current official PTC tools.
 
 - **Search summaries, then load definitions.** Local metadata search prefers external tools, then returns official candidates when no extension matches. Pages default to six entries (maximum eight); disclose up to six complete schemas within a 16 KB budget per load. Official tools stay available; up to twelve recent extension selections enter the host-generated PTC SDK on demand.
-- **One actual failure quarantines the tool for this conversation.** Subsequent execution is blocked in code and state persists with the session. Agent recreation, conversation restore and provider reload do not lift quarantine. Capture provenance and reset generation before dispatch; late pre-reset results cannot contaminate the new state. Empty results, normal pagination, denial, cancellation, invalid arguments and ordinary nonzero command exits are not automatically treated as broken plugins.
-- **Finish the task; do not diagnose failed providers.** Move promptly to a working equivalent or official fallback. No probing, retrying or root-cause investigation. Read back only the task state necessary to avoid duplicate effects after a potentially partial mutation.
+- **Quarantine what is actually broken.** A tool that is clearly unavailable (a missing module or API, or a declared unavailable state) is quarantined at once; temporary and unexplained failures need three in a row, and a success clears the count. Wrong arguments or paths, denial, cancellation and normal results describing their own subject (such as a failed build) are not tool failures. Official tools are never quarantined, including those in the profile's root composition (such as `lsp` and `terminal_*`). After quarantine, execution is blocked in code and state persists with the session. Agent recreation, conversation restore and provider reload do not lift quarantine. Capture provenance and reset generation before dispatch; late pre-reset results cannot contaminate the new state. Empty results, normal pagination and ordinary nonzero command exits are not failures either.
+- **Finish the task; do not diagnose failed providers.** Correct wrong input and retry a temporary failure at most twice. Once a tool is quarantined, move promptly to a working equivalent or official fallback, with no probing, retrying or root-cause investigation. Read back only the task state necessary to avoid duplicate effects after a potentially partial mutation.
 - **Brief completion reporting.** The model lists failed tools and declared provider names at completion. The runtime also projects an expandable compatibility notice after a turn ends. Unknown ownership is reported as unknown, never inferred from a tool name.
 - **Reload from below the composer.** “Reload all tool states” clears quarantine and on-demand selections for the current conversation without a model call or stopping running jobs. The user slash command `/deep-ptc-reset-tools` provides the same action.
 - **Two-stage skill use.** Search the host's resolved, model-invocable skill metadata, then load the exact name with the official `skill` tool and follow its full instructions. Reuse instructions already in context. Discovery never reads skill bodies.
@@ -71,7 +72,7 @@ From 1.5.0, "don't sleep or wait" is enforced by plugin code, not just requested
 | You send a message while a command runs | The foreground wait ends within about 2 s, the command continues in the background, and the model reads your message; job completion still wakes it |
 | `job_output` waits on a job | Capped at 30 s, ends early when you send a message, and waiting again while your message is unread is refused |
 | The model writes `sleep 60`, `Start-Sleep 30` or `timeout /t 20` | Foreground pauses over 5 s are refused (`run_in_background` commands are exempt); short readiness loops such as `sleep 1` still work |
-| `setTimeout`, `setInterval` or `time.sleep` in a `run_code` program | Waits over 5 s, or with a non-literal duration, are refused; polling one running job more than 3 times in one program is refused |
+| `setTimeout`, `setInterval` or `time.sleep` in a `run_code` program | Known waits over 5 s are refused; unresolved durations pass through; polling one running job more than 3 times in one program is refused |
 | `ask_user_question` | Runs in timed mode: 120 s by default, at most 300 s, `-1` refused. An unanswered question becomes pending and your later answer arrives as a message; typing a reply instead of using the card ends the wait at once |
 
 These rules apply only to Deep PTC sessions. They rely on the desktop "busy Enter" setting being **steer**; with **queue**, messages wait for the whole turn to end.
@@ -120,10 +121,10 @@ A prompt changes the model's working tendency, not the real token limit or billi
 Requires Node `>=24` and DSH `>=0.2.2-rc.1`. Windows desktop rc.5 was used for real WSL/PowerShell command checks. macOS/Zsh configuration, argv and tool mounting were checked; native macOS execution has not been verified on this Windows host.
 
 ```js
-plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.7.2" })
+plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.7.3" })
 // Or from a local checkout or archive:
 plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-deep-ptc-mode" })
-// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.7.2.tgz"
+// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.7.3.tgz"
 ```
 
 Repository locator: `github:lishize20040802-rgb/dsh-deep-ptc-mode`. It installs content actually published there; a local upgrade does not publish to GitHub or npm.
@@ -172,3 +173,8 @@ Deep PTC mode is written and maintained by [lishize20040802-rgb](https://github.
 - Email: lishize20040802@gmail.com
 
 Bugs in DeepSeek Harness itself belong upstream, at [deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness).
+
+
+Runtime boundaries: pause checks distinguish executable waits from strings, comments and ordinary timer callbacks. Known constants/products are checked; unresolved durations pass through. `wsl -- sleep 20` really pauses and remains refused. Static checks are not a complete language interpreter. Arbitrary run_code, synchronous subprocesses and long workflow waits cannot currently guarantee early steering; use managed jobs for long work. Official tools are never quarantined, including by stale records. Unattributed tools remain available; quarantine requires positive external attribution.
+
+Version 1.7.3 first reads the running host’s public PTC registry, then discovers installed declarations if that API is unavailable, and uses a warned snapshot only as the final fallback. Registry/declaration or plugin-setting changes automatically refresh new preset generations; changed module sources invalidate attribution caches. No pinned DSH version selects the tool inventory, and leased sessions are not forcibly switched.

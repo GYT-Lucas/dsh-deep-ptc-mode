@@ -8,7 +8,7 @@ import Renderer, { act } from 'react-test-renderer';
 function fixture() {
   let plugin, component, descriptor;
   const calls = [];
-  let outcome = { result: { kind: 'success' } };
+  let outcome = { ok: true, value: { commandId: 'test-command', result: { kind: 'success' } } };
   vm.runInNewContext(readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8'), {
     window: { __ModuleLoader__: { load: definition => { plugin = definition.factory(() => React); } } },
   });
@@ -17,7 +17,7 @@ function fixture() {
     remote: { commands: { async execute(...args) { calls.push(args); return outcome; } } },
     slots: { inject: (name, callback) => callback(), register: (slot, render) => { descriptor = slot; component = render; } },
   };
-  ctx.inject = (deps, callback) => { assert.deepEqual(Array.from(deps), ['remote.commands']); callback(ctx); };
+  ctx.inject = (deps, callback) => { assert.deepEqual(Array.from(deps), ['remote', 'remote.commands']); callback(ctx); };
   plugin.apply(ctx);
   return { component, descriptor, calls, setOutcome: value => outcome = value };
 }
@@ -39,7 +39,7 @@ test('reload button is in the composer footer and resets only the current conver
 });
 test('server denial is displayed as failure; the UI never claims a successful reset', async () => {
   const f = fixture();
-  f.setOutcome({ result: { kind: 'error', text: 'access denied' } });
+  f.setOutcome({ ok: false, error: { code: 'access-denied', message: 'access denied' } });
   let view;
   await act(async () => { view = Renderer.create(React.createElement(f.component, { ...f.descriptor.inject('s'), useProjection: key => key === 'agentPreset' ? 'deep-ptc' : {blocked:[],report:null} })); });
   await act(async () => { await view.root.findByType('button').props.onClick(); });
