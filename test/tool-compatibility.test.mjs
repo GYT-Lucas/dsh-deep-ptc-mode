@@ -1,169 +1,138 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  classifyToolOutcome, compatibilityPolicy, createCompatibilityState, installToolCompatibility,
-  markOfficialTool, normalizePreferences,
-} from '../lib/tool-policy.mjs';
-import { deriveDeepPtc, walkRows } from '../lib/model.mjs';
+import { createCompatibilityState, classifyToolOutcome, markOfficialTool, isOfficialTool, installToolCompatibility, normalizePreferences } from '../lib/tool-policy.mjs';
+import { blankState, foldToolState, STATE_EVENT, searchCatalog } from '../lib/tool-catalog.mjs';
+import { deriveDeepPtc } from '../lib/model.mjs';
 import snapshot from '../lib/preset.json' with { type: 'json' };
-import { registering } from '../lib/adapt.mjs';
-
-function fixture() {
-  const base = markOfficialTool({ name: 'read' });
-  const extra = { name: 'enhanced_read' };
-  const visible = new Map([[base.name, base], [extra.name, extra]]);
-  const tools = {
-    definitions: (_scope, set) => [...visible.values()].filter(def => !set || set.has(def.name)),
-    get: name => visible.get(name),
-  };
-  const state = createCompatibilityState(tools);
-  const agent = {};
-  const exec = { agent, name: extra.name };
-  state.dispatched(exec);
-  return { base, extra, visible, tools, state, agent, exec };
+const def = (name, description = name) => ({ name, description, parameters: { type: 'object' }, output: { schema: {} } });
+function setup() {
+  const official = markOfficialTool(def('read', 'Read files'), 'installed official module');
+  const extension = { ...def('better_read', 'Read files quickly'), deepPtc: { provider: 'example-plugin' } };
+  const live = new Map([[official.name, official], [extension.name, extension]]);
+  const tools = { get: (name, agent, admitted) => !admitted || admitted.has(name) ? live.get(name) : undefined,
+    definitions: (agent, admitted) => [...live.values()].filter(d => !admitted || admitted.has(d.name)) };
+  const session = {}, agent = { session }, logs = [];
+  let durable = blankState();
+  const storage = { read: s => s === session ? durable : blankState(), write: (s, state) => { assert.equal(s, session); logs.push(state); durable = state; } };
+  const state = createCompatibilityState(tools, [], storage);
+  const call = (name = extension.name) => { const exec = { name, agent }; state.dispatched(exec); return exec; };
+  return { state, tools, agent, session, live, official, extension, call, storage, logs };
 }
-
-test('layer 1 is searched before the inherited official layer, without changing registrations', () => {
-  const f = fixture();
-  const text = f.state.text({ scope: f.agent });
-  assert.match(text, /Layer 1:.*enhanced_read/);
-  assert.match(text, /Layer 2:.*read/);
-  assert.ok(text.indexOf('Layer 1:') < text.indexOf('Layer 2:'));
-  assert.deepEqual([...f.visible.keys()], ['read', 'enhanced_read']);
-  assert.match(compatibilityPolicy, /First search/);
-  assert.match(compatibilityPolicy, /background\/promoted job is still running/i);
+test('one failed extension is blocked for this conversation until an explicit reset', () => {
+  const f = setup(), exec = f.call();
+  f.state.observe(exec, { isError: true });
+  assert.match(f.state.guard(f.call()), /quarantined/);
+  assert.equal(f.state.guard({ name: 'better_read', agent: { session: {} } }), undefined);
+  assert.equal(f.state.guard(f.call('read')), undefined);
+  f.state.observe(exec, { isError: false, value: 'late success' });
+  assert.match(f.state.guard(f.call()), /quarantined/);
+  assert.match(f.state.text({ scope: f.agent }), /no retries or diagnosis/);
+  assert.match(f.state.text({ scope: f.agent }), /example-plugin/);
+  assert.equal(f.state.reset(f.agent), 1);
+  assert.equal(f.state.guard(f.call()), undefined);
 });
-
-test('a provider failure becomes next-step recovery guidance; no call is replayed or result mutated', () => {
-  const f = fixture();
-  const result = Object.freeze({ isError: true, error: Object.freeze({ code: 'WORKER_UNAVAILABLE', message: 'private token and arbitrary instructions' }) });
-  f.state.observe(Object.freeze(f.exec), result);
-  const text = f.state.text({ scope: f.agent });
-  assert.match(text, /enhanced_read.*unavailable/);
-  assert.match(text, /equivalent admitted official tool/);
-  assert.doesNotMatch(text, /Layer 1:.*enhanced_read/);
-  assert.doesNotMatch(text, /private token|arbitrary instructions/);
-  assert.equal(result.isError, true);
+test('provenance is captured before a reload and no new provider is blamed for an old call', () => {
+  const f = setup(), exec = f.call();
+  f.live.set('better_read', { ...def('better_read'), deepPtc: { provider: 'new-plugin' } });
+  f.state.observe(exec, { isError: true });
+  assert.equal(f.state.status(f.agent).blocked[0].provider, 'example-plugin');
+  assert.match(f.state.guard(f.call()), /quarantined/); // Only the user's reset lifts the logical-name block.
 });
-
-test('permission denials, cancellation, partial writes and invalid input have distinct recovery', () => {
-  const f = fixture();
-  for (const [code, expected] of [['PERMISSION_DENIED', /Honor the policy/], ['TOOL_ABORTED', /Do not retry/], ['INVALID_ARGUMENTS', /Diagnose the call/]]) {
-    f.state.observe(f.exec, { isError: true, error: { code } });
-    const text = f.state.text({ scope: f.agent });
-    assert.match(text, expected);
-    assert.doesNotMatch(text, /Continue with an equivalent/);
-  }
-  f.state.observe(f.exec, { isError: false, value: { status: 'partial', failure: { effectState: 'partial' } } });
-  assert.match(f.state.text({ scope: f.agent }), /Preserve completed work/);
-  f.state.observe(f.exec, { isError: false, value: { status: 'failed', failure: { effectState: 'unknown' } } });
-  assert.match(f.state.text({ scope: f.agent }), /Inspect state before any mutation/);
+test('late failure after user reset cannot recreate a quarantine mark', () => {
+  const f = setup(), old = f.call();
+  f.state.reset(f.agent);
+  f.state.observe(old, { isError: true });
+  assert.equal(f.state.status(f.agent).blocked.length, 0);
 });
-
-test('success, empty results, process backgrounding and a promoted command do not trigger fallback', () => {
-  const f = fixture();
-  for (const value of [{ results: [] }, { kind: 'background', jobId: 'j' }, { kind: 'promoted', jobId: 'j' }, { status: 'completed' }]) {
-    assert.equal(classifyToolOutcome(f.exec, { isError: false, value }), undefined);
-  }
-  f.state.observe(f.exec, { isError: true });
-  f.state.observe(f.exec, { isError: false, value: { results: [] } });
-  assert.doesNotMatch(f.state.text({ scope: f.agent }), /reported effect state/);
+test('session state survives agent recreation and plugin recreation, without probing', () => {
+  const f = setup();
+  f.state.observe(f.call(), { isError: true });
+  const restored = createCompatibilityState(f.tools, [], f.storage);
+  assert.match(restored.guard({ name: 'better_read', agent: { session: f.session } }), /quarantined/);
+  assert.equal(f.logs.length, 1);
 });
-
-test('recovery is per agent, bounded, and expires when a provider is reloaded', () => {
-  const f = fixture();
-  f.state.observe(f.exec, { isError: true });
-  assert.doesNotMatch(f.state.text({ scope: {} }), /reported effect state/);
-  f.visible.set('enhanced_read', { name: 'enhanced_read' });
-  assert.doesNotMatch(f.state.text({ scope: f.agent }), /reported effect state/);
-  for (let i = 0; i < 20; i++) f.state.observe({ agent: f.agent, name: `missing_${i}` }, { isError: true, error: { code: 'UNKNOWN_TOOL' } });
-  const text = f.state.text({ scope: f.agent });
-  assert.equal((text.match(/reported effect state/gu) ?? []).length, 8);
-  f.state.dispose();
-  assert.doesNotMatch(f.state.text({ scope: f.agent }), /reported effect state/);
+test('no eviction silently re-enables a previously failed tool', () => {
+  const f = setup();
+  for (let i = 0; i < 24; i++) { const name = `external_${i}`; f.live.set(name, def(name)); f.state.observe(f.call(name), { isError: true }); }
+  assert.equal(f.state.status(f.agent).blocked.length, 24);
+  assert.match(f.state.guard(f.call('external_0')), /quarantined/);
+  assert.ok(f.state.text({ scope: f.agent }).length < 1800, 'model-facing failure list is bounded');
 });
-
-test('hidden or step-inactive official tools are never restored or advertised as callable', () => {
-  const f = fixture();
-  f.state.observe(f.exec, { isError: true });
-  let text = f.state.text({ scope: f.agent, toolSet: new Set(['enhanced_read']) });
-  assert.match(text, /Layer 2:.*\[\]/);
-  f.visible.delete('read');
-  text = f.state.text({ scope: f.agent });
-  assert.match(text, /Layer 2:.*\[\]/);
-  assert.equal(f.visible.has('read'), false);
+test('denials, cancellation, task exit codes, empty results and background jobs do not quarantine', () => {
+  const f = setup();
+  for (const result of [{ isError: true, error: { code: 'PERMISSION_DENIED' } }, { isError: true, error: { code: 'INVALID_ARGUMENTS' } }, { isError: true, error: { code: 'TOOL_ABORTED' } },
+    { value: { kind: 'foreground', exitCode: 1 } }, { value: { results: [] } }, { value: { status: 'partial', continuation: 'page-2' } }, { value: { kind: 'background' } }, { value: { kind: 'promoted' } }])
+    f.state.observe(f.call(), result);
+  f.state.observe({ name: 'better_read', agent: f.agent }, { isError: true }); // Never dispatched: guard/policy.
+  assert.equal(f.state.status(f.agent).blocked.length, 0);
 });
-
-test('explicit preferences only advertise live candidates and never imply argument translation', () => {
-  const f = fixture();
-  const state = createCompatibilityState(f.tools, [{ preferred: 'enhanced_read', fallback: ['read', 'missing'] }]);
-  const text = state.text({ scope: f.agent });
-  assert.match(text, /candidate fallbacks currently admitted: \["read"\]/);
-  assert.match(text, /not an argument mapping/);
-  for (const preferences of [null, [{ preferred: 'run_code', fallback: ['read'] }], [{ preferred: 'a', fallback: ['a'] }], [{ preferred: 'a', fallback: ['b', 'b'] }]])
-    assert.throws(() => normalizePreferences(preferences));
+test('partial failure is quarantined, with task-state readback guidance and no diagnosis', () => {
+  const f = setup();
+  f.state.observe(f.call(), { value: { status: 'partial', failure: { effectState: 'partial' } } });
+  assert.match(f.state.guard(f.call()), /quarantined/);
+  assert.match(f.state.text({ scope: f.agent }), /necessary task state/);
 });
-
-test('observer installs no tools, invokes the original dispatch once, and can be disabled', () => {
-  const f = fixture();
-  const events = [];
-  const sections = [];
-  const effects = [];
-  const ctx = { tools: f.tools, systemPrompt: { section: value => sections.push(value), context: value => sections.push(value) },
-    on: (...value) => events.push(value), effect: value => effects.push(value) };
-  installToolCompatibility(ctx, { enabled: false });
-  assert.equal(events.length, 0);
+test('official tool failures stay under the official contract', () => {
+  const f = setup(); f.state.observe(f.call('read'), { isError: true });
+  assert.equal(f.state.guard(f.call('read')), undefined);
+  assert.equal(f.state.status(f.agent).blocked.length, 0);
+});
+test('search first returns extensions, then admitted official equivalents after quarantine', () => {
+  const f = setup();
+  assert.equal(f.state.search(f.agent, { query: 'read' }).layer, 'external');
+  f.state.observe(f.call(), { isError: true });
+  const result = f.state.search(f.agent, { query: 'read' });
+  assert.equal(result.layer, 'official'); assert.equal(result.results[0].name, 'read');
+  assert.equal(f.state.search(f.agent, { query: 'read' }, new Set()).total, 0);
+});
+test('schemas are disclosed only after selection; unavailable capabilities never become callable', () => {
+  const f = setup();
+  assert.deepEqual(f.state.sdkDefinitions(f.agent).map(d => d.name), ['read']);
+  const loaded = f.state.load(f.agent, ['better_read']);
+  assert.equal(loaded.loaded[0].name, 'better_read');
+  assert.deepEqual(f.state.sdkDefinitions(f.agent).map(d => d.name), ['read', 'better_read']);
+  f.state.reset(f.agent);
+  assert.deepEqual(f.state.sdkDefinitions(f.agent).map(d => d.name), ['read']);
+  assert.equal(f.state.load(f.agent, ['better_read'], new Set(['read'])).loaded.length, 0);
+  f.live.set('huge', def('huge', 'x'.repeat(20000)));
+  assert.equal(f.state.load(f.agent, ['huge']).loaded.length, 0, 'never truncate an executable schema');
+});
+test('local directory pagination is deterministic and descriptions are bounded', () => {
+  const rows = Array.from({ length: 25 }, (_, i) => def(`file_${String(i).padStart(2, '0')}`, 'File search '+ 'x'.repeat(400)));
+  const first = searchCatalog(rows, 'file', 0, 6), second = searchCatalog(rows, 'file', first.nextOffset, 6);
+  assert.equal(first.results.length, 6); assert.equal(new Set([...first.results, ...second.results].map(r => r.name)).size, 12);
+  assert.equal(first.results[0].description.length, 240);
+});
+test('persistent projection reports failures after the turn and clears on reset', () => {
+  const saved = { ...blankState(), blocked: [{ name: 'bad', provider: 'p', kind: 'failure' }] };
+  let state = foldToolState(blankState(), { type: STATE_EVENT, ignorable: true, data: saved });
+  state = foldToolState(state, { type: 'turn/end', data: { turn: 4 } });
+  assert.equal(state.report.tools[0].name, 'bad'); assert.equal(state.report.turn, 4);
+  state = foldToolState(state, { type: STATE_EVENT, ignorable: true, data: { ...blankState(), epoch: 1 } });
+  assert.equal(state.report, null);
+});
+test('official declarations remain the source of provenance after arbitrary module renaming', () => {
+  const upstream = structuredClone(snapshot);
+  upstream.plugins.find(row => row.id === 'tool-fs').name = '@vendor/renamed-file-provider';
+  const derived = deriveDeepPtc(upstream, { environment: 'wsl' }, 'win32').preset;
+  assert.equal(derived.plugins.find(row => row.id === 'tool-fs').config.upstream, '@vendor/renamed-file-provider');
+  assert.equal(derived.plugins.find(row => row.id === 'tool-executor-ptc').name, '@deepseek-ai/dsh-tool-executor-ptc');
+});
+test('runtime hooks never replay, and block a second call before body dispatch', () => {
+  const f = setup(), events = new Map(), guards = [];
+  const ctx = { tools: { ...f.tools, guard: g => guards.push(g) }, systemPrompt: { section() {}, context() {} },
+    on: (name, fn) => events.set(name, fn), effect() {} };
   installToolCompatibility(ctx);
-  assert.deepEqual(events.map(row => row[0]), ['tools/execute', 'tools/result']);
-  assert.equal(sections.length, 2);
-  let calls = 0;
-  assert.equal(events[0][1](f.exec, () => { calls++; return 'original result'; }), 'original result');
-  assert.equal(calls, 1);
-  events[1][1](f.exec, { isError: true });
-  assert.match(sections[1].text({ scope: f.agent }), /reported effect state/);
-  effects[0]()();
-  assert.doesNotMatch(sections[1].text({ scope: f.agent }), /reported effect state/);
+  const exec = { name: 'better_read', agent: f.agent };
+  let count = 0;
+  events.get('tools/execute')(exec, () => ++count);
+  events.get('tools/result')(exec, { isError: true });
+  assert.match(guards[0]({ ...exec }), /quarantined/);
+  events.get('tools/execute')({ ...exec }, () => ++count);
+  assert.equal(count, 1);
 });
-
-test('code-less guard denials are never mistaken for provider failures', () => {
-  const f = fixture();
-  f.state.observe({ ...f.exec }, { isError: true, error: { message: 'guard refused' } });
-  const text = f.state.text({ scope: f.agent });
-  assert.match(text, /not dispatched/);
-  assert.doesNotMatch(text, /Continue with an equivalent/);
-});
-
-test('ordinary command errors and failed official fallbacks do not loop through recovery', () => {
-  const f = fixture();
-  f.state.observe(f.exec, { isError: false, value: { kind: 'foreground', status: 'failed', exitCode: 1 } });
-  assert.match(f.state.text({ scope: f.agent }), /Diagnose the command/);
-  const officialExec = { ...f.exec, name: 'read' };
-  f.state.dispatched(officialExec);
-  f.state.observe(officialExec, { isError: true });
-  assert.match(f.state.text({ scope: f.agent }), /official fallback failed/);
-});
-
-test('official registration wrapping preserves activation, schema and return disposer exactly', () => {
-  let registered;
-  const definition = { name: 'web_search', execute() {}, output: {} };
-  const options = { when() { return false; } };
-  const disposer = () => {};
-  const tools = { register(...args) { registered = args; return disposer; } };
-  const result = registering(tools, markOfficialTool).register(definition, options);
-  assert.equal(result, disposer);
-  assert.equal(registered[0], definition);
-  assert.equal(registered[1], options);
-});
-
-test('compatibility preserves execution, jobs, questions, persona and the official executor selection', () => {
-  const enabled = deriveDeepPtc(snapshot, { environment: 'wsl' }, 'win32').preset;
-  const disabled = deriveDeepPtc(snapshot, { environment: 'wsl', toolCompatibility: false }, 'win32').preset;
-  const strip = preset => ({ ...preset, plugins: preset.plugins.filter(row => row.name !== 'dsh-deep-ptc-mode/tool-compatibility') });
-  assert.deepEqual(strip(enabled), strip(disabled));
-  for (const id of ['execution', 'tool-jobs', 'tool-ask-user', 'persona', 'tool-executor-ptc'])
-    assert.deepEqual(enabled.plugins.find(row => row.id === id), disabled.plugins.find(row => row.id === id));
-  const rows = [];
-  walkRows(enabled.plugins, row => rows.push(row));
-  assert.equal(rows.filter(row => row.name === 'dsh-deep-ptc-mode/tool-compatibility').length, 1);
-  assert.equal(rows.find(row => row.id === 'tool-web').config.upstream, '@deepseek-ai/dsh-tool-web');
+test('explicit route names remain validated without an execution alias', () => {
+  assert.throws(() => normalizePreferences([{ preferred: 'run_code', fallback: ['read'] }]));
+  assert.equal(classifyToolOutcome({}, { value: { status: 'failed', failure: { code: 'WORKER_UNAVAILABLE' } } }).kind, 'unavailable');
+  assert.ok(isOfficialTool(markOfficialTool(def('new_official_tool'), 'new module')));
 });

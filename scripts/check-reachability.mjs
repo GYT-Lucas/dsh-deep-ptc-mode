@@ -22,6 +22,7 @@ const { LocalJobRegistry } = await load('@deepseek-ai/dsh-jobs-local');
 const { ToolRuntime } = await load('@deepseek-ai/dsh-tools');
 const { default: SystemPrompt } = await load('@deepseek-ai/dsh-system-prompt');
 const { UserQuestionService } = await load('@deepseek-ai/dsh-user-questions');
+const { Session } = await load('@deepseek-ai/dsh-session');
 const terminal = await load('../lib/terminal.mjs');
 const jobsTool = await load('../lib/jobs-tool.mjs');
 const guard = await load('../lib/guard.mjs');
@@ -32,7 +33,7 @@ const cwd = process.cwd();
 class ShellEnv extends Service { constructor(ctx) { super(ctx, 'shellEnv'); } collect() { return {}; } }
 class WorkingDirectory extends Service { constructor(ctx) { super(ctx, 'workingDirectory'); } resolve() { return cwd; } async ensure() { return cwd; } }
 const agent = {
-  id: 'agent-1', ctx: root, status: 'running', session: { id: 'agent-1', append() {} },
+  id: 'agent-1', ctx: root, status: 'running', session: Session.create('agent-1'),
   inbox: { nextStep: [], nextTurn: [] }, inject() {}, followup() {},
 };
 class Agents extends Service { constructor(ctx) { super(ctx, 'agents'); } get(id) { return id === agent.id ? agent : undefined; } roots() { return [agent]; } }
@@ -43,6 +44,8 @@ await root.plugin(SubprocessLocal, {});
 await root.plugin(LocalBashExecutor, { timeoutMs: 6000, maxTimeoutMs: 6000 });
 await root.plugin(LocalJobRegistry, {});
 await root.plugin(ToolRuntime, {});
+await root.plugin((await load('@deepseek-ai/dsh-commands')).default);
+await root.plugin((await load('@deepseek-ai/dsh-session-projection')).default);
 // From 0.2.2 tools dispatch through a selected executor as call batches.
 const batches = typeof root.tools.setExecutor === 'function';
 if (batches) await root.plugin(await load('@deepseek-ai/dsh-tool-executor-native'));
@@ -53,6 +56,8 @@ await root.plugin(askUser, { upstream: '@deepseek-ai/dsh-tool-ask-user', options
 await root.plugin(guard, { foregroundSeconds: 6, maxQuestionSeconds: 300, maxPollsPerProgram: 3 });
 // The cooperation observer must not change shell waits, questions, jobs or steering.
 await root.plugin(await load('../lib/tool-compatibility.mjs'), {});
+for (let i = 0; i < 100 && !root.tools.get('deep_ptc_tools', agent); i++) await new Promise(resolve => setTimeout(resolve, 10));
+assert.ok(root.tools.get('deep_ptc_tools', agent), 'the complete 1.7.2 layer must be active during reachability tests');
 
 let calls = 0;
 const run = async (name, args) => {

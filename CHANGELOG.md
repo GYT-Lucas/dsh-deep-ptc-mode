@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.7.2 — 2026-11-05
+
+- Add local tool/skill discovery and complete-schema loading with bounded pages, byte budgets and recent selections. Reuse the installed official PTC SDK renderer, reducing only its untouched generated section. Skill discovery reads metadata and invocation controls; the official loader owns skill bodies.
+- Quarantine failed external tools in durable conversation state. Block subsequent calls until the user resets; no automatic probing, retries or root-cause analysis. Capture provenance/reset generation before dispatch; keep cancellation, permission decisions and normal pagination intact.
+- Add a bilingual Reload all tool states button below the composer and a user-only host command. Preserve running jobs. Project failed tool/provider lists at turn completion and request concise final-task reporting.
+- Identify baseline registrations from the inherited composition rather than package naming patterns; support class-style official plugins while retaining their metadata.
+- Preserve the original execution, reachability, question, planning and shell policies. Add regression coverage for quarantine persistence, reset races, SDK disclosure, skill metadata and UI actions.
+
 ## 1.7.1 — 2026-11-05
 
 - Publish the plugin-cooperation release with bilingual README introductions and package/repository descriptions: external capabilities first, multiple providers working together, and the current official PTC composition as fallback, following the “everything is a plugin” composition model. Preserve the original interruptible background-work behavior and document integration boundaries.

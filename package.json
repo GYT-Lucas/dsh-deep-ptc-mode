@@ -1,7 +1,7 @@
 {
   "name": "dsh-deep-ptc-mode",
-  "version": "1.7.1",
-  "description": "Plugin-first Deep PTC for DSH: multi-plugin cooperation, current official PTC fallback and interruptible background jobs. / DSH 深度 PTC：外部插件优先、多插件协作、动态官方工具兜底，保留后台运行与随时插话。",
+  "version": "1.7.2",
+  "description": "Lightweight Deep PTC: tool/skill discovery, multi-plugin cooperation, official fallback and interruptible jobs. / 轻量深度 PTC：工具与技能按需发现、多插件协作、官方兜底、后台可插话。",
   "type": "module",
   "keywords": [
     "dsh-plugin",
@@ -53,7 +53,8 @@
       "inject": [
         "@deepseek-ai/dsh-client-locale",
         "@deepseek-ai/dsh-client-ui-settings",
-        "@deepseek-ai/dsh-client-ui-plugin-manager"
+        "@deepseek-ai/dsh-client-ui-plugin-manager",
+        "@deepseek-ai/dsh-client-ui-commands"
       ]
     }
   },
@@ -85,7 +86,8 @@
     "@deepseek-ai/dsh-client-ui-slots": ">=0.2.2-rc.1",
     "@deepseek-ai/dsh-client-locale": ">=0.2.2-rc.1",
     "@deepseek-ai/dsh-web-app": ">=0.2.2-rc.1",
-    "@deepseek-ai/dsh-base": ">=0.2.2-rc.1"
+    "@deepseek-ai/dsh-base": ">=0.2.2-rc.1",
+    "@deepseek-ai/dsh-client-ui-commands": ">=0.2.2-rc.1"
   },
   "peerDependenciesMeta": {
     "@deepseek-ai/schemastery": {
@@ -107,6 +109,9 @@
       "optional": true
     },
     "@deepseek-ai/dsh-base": {
+      "optional": true
+    },
+    "@deepseek-ai/dsh-client-ui-commands": {
       "optional": true
     }
   },
