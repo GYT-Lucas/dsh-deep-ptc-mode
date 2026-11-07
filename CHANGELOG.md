@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.8.1 — 2026-11-07
+
+- 重写简介与 README：以“五个基本问题”为主线，再梳理“一切皆插件”的六项能力（动态预设/工具读取、创造模式、dsh-go 界面控制、多环境、外部插件工具/工作流适配、Skill 与工具读取）。
+- 更新 npm 描述与 GitHub About；不承诺适配所有第三方插件，dsh-ops 为已专门测试的场景，其他插件走同一接口。
+- 仅简介与文档变更，不改变运行时行为。
+
+- Rewrite the introduction and README around the five basic problems, followed by the six “everything is a plugin” capabilities (dynamic preset/tool loading, creative mode, dsh-go screen control, multi-shell support, external tool/workflow adaptation, and leaner skill/tool loading).
+- Update the npm description and GitHub About. No promise to fit every third-party plugin: dsh-ops is the specifically tested case and other plugins use the same interface.
+- Documentation and description only; no runtime behavior change.
+
 ## 1.8.0 — 2026-11-07
 
 - 会话级 preset 身份兼容，两次尝试：不限制预设名称的外部插件拿原生 `deep-ptc`（第一层，直接可用）；限制预设名称、列表里没有 `deep-ptc` 的插件拿基座 `ptc`（第二层，对包含 `ptc` 的列表必定通过）。显式支持 `deep-ptc` 的插件也拿原生。宿主内部（子代理 header、定时任务、注册表自身）保持精确 id，不影响继承与调度。

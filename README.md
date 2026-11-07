@@ -1,30 +1,56 @@
 # Deep PTC mode
 
-[中文](README.zh.md) · MIT · **1.8.0**
+[中文](README.zh.md) · MIT · **1.8.1**
 
 [1.7.3 实测汇总 / Test summary](TEST_REPORT.md)
-**Let plugins cooperate. Keep current official PTC tools as the fallback. Stay interruptible while work runs.**
+**Reports. Asks. Stays awake. Plans. Stays reachable.**  
+**Five basics, one mode; everything is a plugin, with the official preset always as the fallback.**
 
-Deep PTC is a DeepSeek Harness agent preset built for a plugin ecosystem. It first looks for a suitable tool among the available external plugins, then continues with the running host’s dynamically discovered official PTC capability when no enhancement fits or a provider fails. Multiple plugins can contribute different parts of a task, each using its own schemas, discovery and result contracts. Deep PTC adds no task tools of its own.
+Deep PTC is not another tool bundle. It is a DeepSeek Harness agent preset built around five basic problems in model work: working silently without reporting, guessing instead of asking when intent is ambiguous, sleeping and becoming unreachable during a task, not planning or not showing the plan, and not using the original PTC preset's concise context plus its unlimited-token prompt.
 
-Deep PTC 1.8.0 adds **session-scoped preset identity**: an external plugin that does not restrict preset names sees the native `deep-ptc`, a plugin that restricts them gets the base `ptc` (or `cordis` for a creative-mode row mounted by the plugin lab), and host internals keep the exact id. Normal PTC and creative sessions are untouched.
+Those five are handled first by prompts and code. On top of that, following DSH's “everything is a plugin” philosophy, the preset adds dynamic preset/tool loading, creative-mode tools for building DSH plugins, dsh-go screen-control adaptation, wider shell support, external plugin tool/workflow adaptation, and a leaner skill/tool loading flow. Deep PTC adds no task tools itself; it provides the interface that lets a plugin's new tools be discovered, loaded and called.
 
-The same working rules remain: use the model's capability thoroughly, move long commands into managed background jobs, respond to your messages while work runs, plan by task size, clarify intent, and execute in your selected WSL / PowerShell / Zsh / Bash environment.
+Not every third-party plugin is guaranteed to fit: the interface is verified for dsh-ops and reused by other plugins, but a plugin still has to support the installed host and publish its tools under the expected contract.
 
-## A mode for “everything is a plugin”
+## Five basic problems
 
-Compatibility has two directions: follow the installed official PTC composition as it evolves, and cooperate with external tool plugins instead of assuming a fixed tool inventory. This follows DSH's composable, “everything is a plugin” approach: the mode supplies working rules and recovery guidance, while tool providers retain ownership of their capabilities.
+| # | Problem | What Deep PTC does |
+| --- | --- | --- |
+| 1 | **Working silently without reporting** | One sentence before every `run_code`; a longer update at milestones; never more than two or three silent tool calls; a short final result with failed tools and providers. |
+| 2 | **Guessing instead of asking** | Meaning belongs to the user, facts to the tools: ask one to three questions with options when names, targets, routes, scope or acceptance criteria are unclear; look up inspectable facts yourself. The user's answer wins. |
+| 3 | **Sleeping or becoming unreachable** | Enforced in code: foreground waits move to the background after 30 s; a user message hands the waiting command to the background within about 2 s; foreground sleeps over 5 s are refused; job completion wakes the model. |
+| 4 | **No plan, or an invisible plan** | Plan by estimated size: act silently under 5 minutes; show the plan and start without approval for 5–20 minutes; show it and wait for approval over 20 minutes. Re-plan when the estimate moves up; the user can redirect at any step. |
+| 5 | **Not using the concise context and unlimited-token prompt** | Derive from the live official PTC composition, keep the tool catalog compact and load full schemas on demand, and state that this mode spends its token budget on reads, searches, commands and checks rather than rationing them. The prompt does not change billing or the real token limit. |
 
-| Responsibility | How the plugins cooperate |
-| --- | --- |
-| External capabilities first | Search the available plugin capabilities for the needed function; use a provider's own discovery/SDK loader when appropriate |
-| Multiple providers together | Use different plugins for different operations in the same task; no single enhancement plugin is required |
-| Current official fallback | Continue through the installed Harness's official PTC tools if an enhancement is absent or fails |
-| Shared task discipline | Preserve interruptible background work, clarification, planning and the selected execution environment |
+## Built for “everything is a plugin”
 
-An extension must publish into the `deep-ptc` scope and support the installed host. Keep official fallbacks visible in the provider's own configuration where supported. This is cooperative task-level selection, not a guarantee that every plugin or replacement executor is interchangeable. OPS is one possible provider, not a bundled dependency or a completed integration claim.
+### 1. Dynamic preset and tool loading
 
-The official fallback retains the 1.6.1 derivation mechanism: the plugin reads the running host’s PTC declaration and checks for changes every five seconds; only changed declarations or this plugin’s settings rebuild the preset and follows its module names and configuration. The bundled snapshot is used only if loading, parsing or derivation fails, with a warning. Reload after an official upgrade and use a new preset revision; existing sessions are not forcibly switched. DSH support starts at the installed desktop release candidate, `>=0.2.2-rc.1`. Only RC builds are supported; alpha builds are not. There is no upper bound on later release candidates, and a newer RC still needs a host-interface check.
+Read the running host's official PTC declaration and inherit its rows as they are; only the persona, execution group, reachability guard, job wrapper and question wrapper are replaced. Rebuild only when the declaration or settings change (checked every five seconds); fall back to the bundled snapshot with a warning if it cannot be loaded, parsed or derived. An official upgrade can add tools without a release of this preset; existing sessions are not forcibly switched.
+
+### 2. Flexible creative-mode tools
+
+The plugin lab is off by default. When enabled, it reads the host's creative preset and appends only the rows that mode adds, specifically for building DSH plugins. Module names stay as declared; skill directories resolve relative to the creative preset file. Lab packages stay in process memory, are not written to the repository, shipped presets, desktop composition or this plugin's source, and run only through the host's existing approval. Loading reads the roster and documents only; it never calls `composedPreset`.
+
+### 3. dsh-go screen-control adaptation
+
+Screen-control tools stay in the initial PTC SDK, are not moved on demand, and are not quarantined on failure. Recognition uses the tool's own `resident` mark, `dsh-go/view`, its name or its provider mark. Deep PTC does not claim dsh-go's slots or replace its settings form; if the tool-state projection fails, that control stays empty without tearing down the composer or screen-control UI.
+
+### 4. Wider execution environments
+
+WSL Bash, PowerShell (including discovered 5.1 and 7 executables), Zsh and native Bash are supported. The choice applies to this preset only and does not change the global shell; sandbox, approval and process management stay official. WSL currently requires the host-authorized `danger-full-access` mode.
+
+### 5. External plugin tool/workflow adaptation (dsh-ops tested)
+
+This is the core interface: external plugins publish tools under their own contract; Deep PTC discovers them, loads them on demand, quarantines failures per conversation and falls back to official PTC. Extensions must support the installed host and publish into the `deep-ptc` scope; Deep PTC does not depend on any specific plugin or replace the executor.
+
+**dsh-ops is specifically tested.** Its gate recognises only `minimal/standard/ptc/cordis`. Deep PTC first offers the native `deep-ptc`; when it detects that the plugin restricts preset names, it returns the base id the plugin accepts — `ptc` (or `cordis` for a creative row) — while host internals keep the exact `deep-ptc`. dsh-ops therefore needs no change for its new tools to be discovered and called; other plugins use the same interface, judged by their own packages. Unattributed tools are not quarantined; only a positively attributed external provider can be, and official tools are never quarantined.
+
+### 6. Leaner skill and tool loading
+
+Search summaries first, then load full schemas: six entries per page by default (maximum eight), up to six schemas within a 16 KB budget per load, and up to twelve recent selections. Quarantine persists with the conversation: clear unavailability blocks immediately; temporary failures need three in a row and a success clears the count; wrong arguments, denial and normal business failures are not tool failures; one reset clears only the current conversation. Skills load in two stages: discovery reads metadata and invocation permission only; the official `skill` tool loads the body.
+
+Three steps: install the plugin → choose an environment under **Settings → Plugins → Deep PTC** → choose **深度PTC模式** in the mode picker for a new task.
 
 ## 1.7.2: lightweight, on-demand tool orchestration
 
@@ -49,20 +75,7 @@ Set `compactToolCatalog: false` under `deep-ptc-settings` to retain the full hos
 
 Compaction only changes an untouched SDK section generated by the installed official renderer. Provider-owned/custom SDKs keep their own loaders. Extensions must support the host and publish into `deep-ptc`; this layer does not override hidden tools, authorization or an unloaded whole executor. Actual OPS/online-model end-to-end integration has not been performed.
 
-## Overview
 
-Deep PTC targets six common problems in everyday agent work:
-
-| Problem | What Deep PTC does |
-| --- | --- |
-| Enhanced tools and presets do not naturally cooperate | Search external plugin capabilities first, combine suitable providers, and recover through the dynamically inherited official PTC baseline |
-| The model rations tokens, skipping reads and tests, and quality suffers | The persona states that it works at DeepSeek with an unlimited token budget in this mode: never skip a read, search, command or check to save tokens. Guardrails forbid padding, verbosity and context blow-ups |
-| Once work starts, the model sleeps or waits and ignores your messages | Enforced in code: foreground commands move to the background after 30 s, a message from you moves the waiting command to the background at once so the model reads it, and long sleeps are refused; job completion wakes the model (see "Enforced reachability" below) |
-| Every task starts the same way regardless of size | Three bands by estimated time: up to 5 minutes, plan internally and act; 5–20 minutes, show the plan and start without approval; over 20 minutes, show the plan and wait for approval |
-| It starts before understanding what you meant, then redoes the work | Meaning belongs to you, facts to the tools: unfamiliar names, competing targets or routes, scope and acceptance criteria are asked about (one to three questions with options), never guessed by searching; file locations and current behavior are looked up |
-| The command environment is fixed | Choose WSL Bash, PowerShell, Zsh (macOS/Linux) or native Bash in settings; the choice applies to this preset only and leaves the global shell alone |
-
-Three steps: install the plugin → pick an environment under **Settings → Plugins → Deep PTC** → choose **深度PTC模式** in the mode picker for a new task.
 
 ## Enforced reachability: no sleeping, always interruptible
 
@@ -158,10 +171,10 @@ A prompt changes the model's working tendency, not the real token limit or billi
 Requires Node `>=24` and DSH RC `>=0.2.2-rc.1` (the installed desktop). Alpha builds are not supported. Windows desktop rc.5 was used for real WSL/PowerShell command checks. macOS/Zsh configuration, argv and tool mounting were checked; native macOS execution has not been verified on this Windows host.
 
 ```js
-plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.8.0" })
+plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.8.1" })
 // Or from a local checkout or archive:
 plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-deep-ptc-mode" })
-// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.8.0.tgz"
+// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.8.1.tgz"
 ```
 
 Repository locator: `github:lishize20040802-rgb/dsh-deep-ptc-mode`. It installs content actually published there; a local upgrade does not publish to GitHub or npm.
