@@ -107,11 +107,25 @@ Native PowerShell, Bash and Zsh use Harness sandbox, approval and process manage
 
 PowerShell, Bash and Zsh can use a common executable discovered on this machine. Leaving it empty keeps the official lookup. WSL still selects a distribution only. A missing file logs a warning and falls back to automatic. PowerShell writes the official executor's `pwshPath`. Bash and Zsh change only the startup argv.
 
-## Plugin lab and external tools
+## Plugin lab: official creative mode, in memory
 
-Plugin lab is off by default. When it is on, Deep PTC reads the creative preset the host currently publishes and appends only the rows that preset adds beyond PTC. Module names come from that document. Lab work stays in memory. It does not edit shipped presets, the desktop composition or this plugin's source, and it does not bypass host approval. If that preset cannot be read, official PTC tools remain.
+Deep PTC is often used for programming, and it can also be used to design a DSH plugin. **Plugin lab** (设置里的「插件实验台」) is off by default. Turn it on under **Settings → Plugins → Deep PTC**, then start a new session. `pluginLab: true` in the Cordis settings is the same switch.
 
-Tools and workflows registered by external plugins are chosen by capability first. Official tools remain the fallback. Tools that mark themselves resident, including screen-control tools, stay in the initial list and are not quarantined. Other external tools stay on demand.
+When the lab is on, Deep PTC loads the official **creative mode** (创造模式) the same way it loads PTC: from the preset the running host publishes (`agentPresets.readDocument`, preferring the preset named 创造模式, otherwise the shipped id `cordis`). It appends only the rows that creative mode adds beyond the current PTC composition. Module names stay exactly as that document declares them, so an official rename follows the host instead of a name baked into this plugin. Skill directories that the creative preset expresses relative to its own file are resolved against that preset's directory. The desktop already mounts the host runner, so those rows are left to the host and are not copied a second time.
+
+The lab is an environment for designing and trying a plugin in this process: inspect the live composition, define a syntax-checked package, then run it only through the host's existing approval. Packages stay in memory for this process. They do not write the repository, shipped presets, the desktop composition, or this plugin's source. Host approval stays as the host defined it. If the creative preset cannot be read, or a lab tool is missing or fails, the session continues with the official PTC tools.
+
+## dsh-go and other external tools
+
+External plugins are discovered from what they actually register. Tools and workflows are chosen by capability first. Official PTC tools stay available and are the fallback when a third-party tool fails. No external plugin, including dsh-go, is a dependency of this package.
+
+**dsh-go** (the phone app and its screen-control surface) stays usable inside a Deep PTC session:
+
+- Screen-control tools remain in the initial PTC SDK. They are not folded into the on-demand catalog and they are not quarantined after a failure. A tool qualifies when it sets `resident` (or `deepPtc.resident`), when its presentation carries the `dsh-go/view` key, when its name is `intent`, `collect`, `tap_xy`, or starts with `screen_`, or when its provider is marked as dsh-go, screen control, computer use, or phone control. Any other plugin can use the same `resident` flag. Ordinary extensions stay on demand.
+- Deep PTC does not declare dsh-go's own slots and does not replace its settings. Those forms still come from the Cordis schema, so the app renders them itself.
+- The tool-state control under the composer reads its own state first. If the projection is missing, belongs to another preset, or throws, that control renders nothing. A failure there leaves the input row and the screen-control chrome in place.
+
+Phone screen control was not clicked on a device for this release. The guarantee above is the SDK membership, the quarantine rule, and the composer failure path.
 
 ## Working contract
 
@@ -146,6 +160,8 @@ Settings persist through the active profile's Cordis patch:
   config:
     environment: auto       # auto | wsl | powershell | zsh | bash
     wslDistribution: ''      # blank uses the Windows default
+    shellExecutable: ''      # blank keeps the official lookup
+    pluginLab: false         # true loads the host's creative-mode rows
 ```
 
 Prefer the UI, which uses revisioned, atomic Host form writes.

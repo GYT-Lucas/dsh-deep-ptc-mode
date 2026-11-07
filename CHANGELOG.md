@@ -4,15 +4,15 @@
 
 - 支持当前桌面端 DSH RC `>=0.2.2-rc.1`。只声明支持 RC，不支持 alpha。
 - PowerShell、Bash、Zsh 可以选择本机已发现的可执行文件。未选择或文件消失时仍走官方自动查找。WSL 仍只选择发行版。PowerShell 写入官方执行器的 `pwshPath`；Bash 和 Zsh 只替换启动参数，沙箱与批准仍用官方执行器。
-- 插件实验台默认关闭。打开后从宿主正在发布的「创造模式」预设读取多出来的行，模块名以该预设原文为准，不写死官方包名。实验只在内存中进行，不改已发布预设，也不绕过宿主批准。预设读不到时继续使用官方 PTC 工具。
-- 外部插件注册的工具和工作流仍是先按能力选用、官方工具兜底。屏幕控制等自行标明常驻的工具留在初始列表里且不被隔离；普通外部工具仍按需加载。
-- 工具状态按钮在界面投影失败时留空，不再拖垮输入区。
+- 新增插件实验台，默认关闭。打开后按读取 PTC 的同一方式，动态读取宿主正在发布的官方创造模式，只追加相对 PTC 多出来的行，模块名以该预设原文为准。实验在内存中检查、定义并经宿主批准后运行，不写仓库、已发布预设、桌面组合或本插件源码。预设读不到时继续使用官方 PTC 工具。
+- 适配 dsh-go 的屏幕控制：这类工具留在初始 SDK，失败不隔离。识别依据是工具自己的常驻标记、`dsh-go/view`、屏幕控制工具名，或提供者标记，不把 dsh-go 写成依赖，也不占用它的槽位和设置表单。其他外部工具仍是能力优先、官方兜底，普通扩展按需加载。
+- 工具状态按钮在界面投影失败时留空，输入区和屏幕控制界面保持原位。
 
 - Declare support for the installed desktop DSH release candidate, `>=0.2.2-rc.1`. Alpha builds are not supported.
 - PowerShell, Bash and Zsh can use a discovered executable. An empty or missing choice keeps the official lookup. WSL still selects a distribution only. PowerShell writes the official `pwshPath`; Bash and Zsh change argv only, and sandbox plus approval stay on the official executor.
-- Plugin lab is off by default. When on, extra rows are copied from the creative preset the host currently publishes, using the module names in that document. Lab work stays in memory, does not edit shipped presets, and does not bypass host approval. If that preset cannot be read, official PTC tools remain.
-- External tools and workflows stay capability-first, with official tools as the fallback. Tools that mark themselves resident, including screen control, stay in the initial list and are not quarantined. Ordinary external tools stay on demand.
-- The tool-state control renders nothing when the composer projection fails.
+- Add plugin lab, off by default. When on, load the official creative mode the same way PTC is loaded and append only the extra rows, using the module names in that document. Lab packages stay in memory: inspect, define, then run through host approval. They do not write the repository, shipped presets, the desktop composition, or this plugin. If that preset cannot be read, official PTC tools remain.
+- Adapt dsh-go screen control: those tools stay in the initial SDK and are not quarantined. Recognition uses the tool's own resident flag, `dsh-go/view`, screen-control names, or the provider mark. dsh-go is not a dependency, and its slots and settings forms stay its own. Other external tools stay capability-first, with official tools as the fallback. Ordinary extensions stay on demand.
+- The tool-state control renders nothing when the composer projection fails, leaving the input row and the screen-control chrome in place.
 
 ## 1.7.3 — 2026-11-05
 
