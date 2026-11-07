@@ -4,7 +4,8 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import snapshot from '../lib/preset.json' with { type: 'json' };
 import { deriveDeepPtc, personaFrom, PRESET_META, walkRows } from '../lib/model.mjs';
-import { loadOfficialPreset, OFFICIAL_PRESET_SPECIFIER, parseOfficialExecutors, parseOfficialPreset, PRESET_PATH_ENV } from '../lib/upstream.mjs';
+import { join } from 'node:path';
+import { loadCreativePreset, loadOfficialPreset, OFFICIAL_PRESET_SPECIFIER, parseCreativeDocument, parseOfficialExecutors, parseOfficialPreset, PRESET_PATH_ENV } from '../lib/upstream.mjs';
 import { assertDerivation, assertPeerCoverage, requiredPeerPackages } from '../scripts/check.mjs';
 
 const fixtureUrl = name => new URL(`fixtures/${name}`, import.meta.url);
@@ -108,6 +109,40 @@ test('follows official module renames instead of loading a hard-coded name', () 
   assert.equal(executor.config.base, '@deepseek-ai/dsh-shell-sandbox');
   assert.deepEqual(executor.config.options, { graceMs: 5000, timeoutMs: 30000, maxTimeoutMs: 30000 });
   assertDerivation(upstream, preset, { executors });
+});
+
+test('default derivation is unchanged, and plugin lab copies only rows the creative document adds', async () => {
+  const upstream = current();
+  assert.deepEqual(derive(upstream).preset, derive(upstream, { shellExecutable: '', pluginLab: false, creativePlugins: [{ id: 'tool-added', name: '@someone/renamed' }] }).preset);
+  const powershell = deriveDeepPtc(upstream, { environment: 'powershell' }, 'win32').preset;
+  assert.equal(powershell.plugins.find(row => row.id === 'execution').config[0].config.pwshPath, undefined);
+  const chosen = deriveDeepPtc(upstream, { environment: 'powershell', shellExecutable: 'D:\\pwsh.exe', shellNote: 'PowerShell 7+ at D:\\pwsh.exe uses pwsh syntax.' }, 'win32').preset;
+  const executor = chosen.plugins.find(row => row.id === 'execution').config[0];
+  assert.equal(executor.config.pwshPath, 'D:\\pwsh.exe');
+  assert.match(executor.name, /pwsh/u);
+  const bash = deriveDeepPtc(upstream, { environment: 'bash', shellExecutable: '/opt/bin/bash' }, 'linux').preset.plugins.find(row => row.id === 'execution').config[0];
+  assert.equal(bash.name, 'dsh-deep-ptc-mode/executor');
+  assert.equal(bash.config.environment, 'bash');
+  assert.equal(bash.config.shellExecutable, '/opt/bin/bash');
+  const loaded = await loadCreativePreset({
+    async list() { return [{ id: 'other', name: '其他' }, { id: 'future', name: '创造模式' }]; },
+    async readDocument(id) { assert.equal(id, 'future'); return { content: '- id: tool-added\n  name: "@someone/renamed"\n' }; },
+  });
+  assert.equal(loaded.source, 'agentPresets.readDocument(future)');
+  assert.deepEqual(loaded.plugins, parseCreativeDocument('- id: tool-added\n  name: "@someone/renamed"\n'));
+  const lab = derive(upstream, {
+    pluginLab: true, creativeRoot: join('C:/presets', 'cordis'), creativePlugins: [
+      ...loaded.plugins,
+      { id: 'persona', name: '@deepseek-ai/dsh-persona', config: { prefix: 'no', suffix: 'no' } },
+      { id: 'dynamicCordisRunner', name: '@vendor/cordis-host-runner' },
+      { id: 'skill-filesystem', name: '@vendor/skill-filesystem-next', config: { customSkillDirs: [{ __jsExpr: "new URL('skills/', baseUrl)" }] } },
+    ],
+  }).preset;
+  assert.ok(lab.plugins.some(row => row.id === 'tool-added' && row.name === '@someone/renamed'));
+  assert.equal(lab.plugins.filter(row => row.id === 'persona').length, 1);
+  assert.ok(!lab.plugins.some(row => String(row.name).includes('host-runner')));
+  assert.ok(lab.plugins.some(row => row.name === 'dsh-deep-ptc-mode/lab'));
+  assert.equal(lab.plugins.find(row => row.id === 'skill-filesystem-creative').config.customSkillDirs[0], join('C:/presets', 'cordis', 'skills'));
 });
 
 test('reads the official executors from the base deployment declaration', () => {

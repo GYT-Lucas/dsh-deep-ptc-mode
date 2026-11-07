@@ -1,6 +1,6 @@
 # 深度 PTC 模式
 
-[English](README.md) · MIT · 当前版本：**1.7.3**
+[English](README.md) · MIT · 当前版本：**1.7.4**
 
 [1.7.3 实测汇总 / Test summary](TEST_REPORT.md)
 **让插件协作，让当前官方 PTC 工具兜底，让任务始终可沟通。**
@@ -22,7 +22,7 @@
 
 外部插件需支持当前宿主，并在 `deep-ptc` 的作用域中发布工具；支持保留官方工具的插件，应在自身配置中保留兜底能力。这是任务级的合作选择机制，不代表所有插件或整个替换执行器都能直接互换。OPS 可以作为其中一个提供者，不是内置依赖，也不表示已经完成 OPS 的实际联调。
 
-官方兜底沿用 1.6.1 的动态派生机制：自动读取实际运行宿主的官方 PTC 声明；每 5 秒检测声明变化，仅在声明或本插件配置变化时重建预设，工具模块和配置跟随该声明；仅在声明无法读取、解析或派生时使用随包快照并记录日志。官方升级后需重载并创建使用新版预设的会话，既有会话不被强制切换。最低支持 DSH `>=0.2.2-rc.1`，不设上限；更高版本仍需验证宿主接口。
+官方兜底沿用 1.6.1 的动态派生机制：自动读取实际运行宿主的官方 PTC 声明；每 5 秒检测声明变化，仅在声明或本插件配置变化时重建预设，工具模块和配置跟随该声明；仅在声明无法读取、解析或派生时使用随包快照并记录日志。官方升级后需重载并创建使用新版预设的会话，既有会话不被强制切换。最低支持当前桌面端 DSH RC `>=0.2.2-rc.1`。只支持 RC，不支持 alpha。不设 RC 上限；更高的 RC 仍需验证宿主接口。
 
 ## 1.7.2：轻量、按需、可恢复的工具调用层
 
@@ -105,6 +105,14 @@ WSL 命令使用 Linux/POSIX 语法；文件工具和 `workdir` 仍用 Windows �
 
 原生 PowerShell、Bash 和 Zsh 继续使用 Harness 的沙箱、审批和进程管理。WSL 跨越 Windows/Linux 边界，目前仅支持宿主已经授权的 `danger-full-access` 执行；`read-only` 或 `workspace-write` 调用在启动命令前失败。插件不会自行升权、改变默认权限或悄悄换 shell。
 
+选择 PowerShell、Bash 或 Zsh 时，可以指定本机已经发现的常见可执行文件。留空则沿用官方查找顺序。WSL 仍只选择发行版。所选文件不存在时记一条警告并回到自动。PowerShell 的选择写入官方执行器的 `pwshPath`。Bash 和 Zsh 只改启动参数。
+
+## 插件实验台与外部工具
+
+插件实验台默认关闭。打开后，深度 PTC 读取宿主当前发布的「创造模式」预设，只追加其中相对 PTC 多出来的行。模块名以该预设原文为准，不写死官方包名。实验在内存中进行，不修改已发布预设、桌面组合或本插件源码，也不绕过宿主批准。该预设读不到时，仍使用官方 PTC 工具。
+
+外部插件注册上来的工具和工作流按能力优先，官方工具兜底。自行标记常驻的工具，以及屏幕控制一类工具，留在初始列表里，失败也不隔离。其余外部工具仍按需加载。
+
 ## 工作规则
 
 - **不为 token 省力：** 人设写明在深度求索工作、本模式 token 预算无限，按问题需要而不是成本决定读取、搜索、命令和验证的深度；同时禁止注水和啰嗦，单次上下文仍有限，靠压缩、裁剪和子代理控制。
@@ -118,15 +126,15 @@ WSL 命令使用 Linux/POSIX 语法；文件工具和 `workdir` 仍用 Windows �
 
 ## 安装和升级
 
-要求 Node `>=24`、DSH `>=0.2.2-rc.1`。1.3.0 已用 Windows 桌面端 rc.5 做 WSL/PowerShell 命令验证。macOS/Zsh 分支做了配置、工具挂载与参数测试，尚未在 macOS 真机执行。
+要求 Node `>=24`、DSH RC `>=0.2.2-rc.1`（当前桌面端）。不支持 alpha 版本。1.3.0 已用 Windows 桌面端 rc.5 做 WSL/PowerShell 命令验证。macOS/Zsh 分支做了配置、工具挂载与参数测试，尚未在 macOS 真机执行。
 
 本地目录或构建产物可通过插件管理器安装：
 
 ```js
-plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.7.3" })
+plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.7.4" })
 // 也可从本地目录或安装包安装：
 plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-deep-ptc-mode" })
-// 或 target: "C:\\path\\to\\dsh-deep-ptc-mode-1.7.3.tgz"
+// 或 target: "C:\\path\\to\\dsh-deep-ptc-mode-1.7.4.tgz"
 ```
 
 GitHub 地址：`github:lishize20040802-rgb/dsh-deep-ptc-mode`。该地址安装远端实际内容；本地升级不会自动发布到 GitHub/npm。

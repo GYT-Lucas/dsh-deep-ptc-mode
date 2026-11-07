@@ -47,6 +47,19 @@ test('server denial is displayed as failure; the UI never claims a successful re
   assert.doesNotMatch(JSON.stringify(view.toJSON()), /toolResetDone/);
   await act(async () => view.unmount());
 });
+test('a missing or throwing projection leaves the composer empty', async () => {
+  const f = fixture();
+  let view;
+  await act(async () => { view = Renderer.create(React.createElement(f.component, { ...f.descriptor.inject('s') })); });
+  assert.equal(view.toJSON(), null);
+  await act(async () => view.unmount());
+  await act(async () => { view = Renderer.create(React.createElement(f.component, { ...f.descriptor.inject('s'),
+    useProjection: () => { throw new Error('projection unavailable'); } })); });
+  assert.equal(view.toJSON(), null);
+  assert.equal(f.calls.length, 0);
+  await act(async () => view.unmount());
+});
+
 test('other modes do not show Deep PTC tool controls', async () => {
   const f = fixture(); let view;
   await act(async () => { view = Renderer.create(React.createElement(f.component, { ...f.descriptor.inject('s'), useProjection: () => 'standard' })); });

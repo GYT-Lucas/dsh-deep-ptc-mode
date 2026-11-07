@@ -46,14 +46,36 @@ test('Windows settings save WSL and distribution atomically through the revision
   assert.equal(options.find(option => option.props.value === 'zsh').props.disabled, true);
   assert.equal(options.find(option => option.props.value === 'wsl').props.disabled, false);
   await act(async () => { view.root.findByType('select').props.onChange({ target: { value: 'wsl' } }); });
-  await act(async () => { view.root.findByType('input').props.onChange({ target: { value: ' Ubuntu ' } }); });
+  await act(async () => { view.root.findByProps({ id: 'deep-ptc-distribution' }).props.onChange({ target: { value: ' Ubuntu ' } }); });
   await act(async () => { await view.root.findByType('form').props.onSubmit({ preventDefault() {} }); });
   assert.equal(fixture.writes.length, 1);
   assert.equal(fixture.writes[0].revision, 4);
   assert.deepEqual(JSON.parse(JSON.stringify(fixture.writes[0].ops)), [
     { op: 'set', path: ['environment'], value: 'wsl' },
     { op: 'set', path: ['wslDistribution'], value: 'Ubuntu' },
+    { op: 'set', path: ['shellExecutable'], value: '' },
+    { op: 'set', path: ['pluginLab'], value: false },
   ]);
+  await act(async () => { view.unmount(); });
+});
+
+test('PowerShell can select a discovered executable, and plugin lab is saved without the discovery list', async () => {
+  const fixture = setup('win32');
+  fixture.setSnapshot({ status: 'ready', writable: true, revision: 4, value: {
+    environment: 'powershell', wslDistribution: '', hostPlatform: 'win32', shellExecutable: '', pluginLab: false,
+    shellChoices: [{ id: 'path:C:\\PowerShell\\7\\pwsh.exe', label: 'PowerShell 7', path: 'C:\\PowerShell\\7\\pwsh.exe', family: 'powershell' }],
+  } });
+  let view;
+  await act(async () => { view = Renderer.create(React.createElement(fixture.Card, { view: 'config' })); });
+  const shell = view.root.findByProps({ id: 'deep-ptc-shell' });
+  assert.equal(shell.props.value, '');
+  await act(async () => { shell.props.onChange({ target: { value: 'path:C:\\PowerShell\\7\\pwsh.exe' } }); });
+  await act(async () => { view.root.findByProps({ id: 'deep-ptc-plugin-lab' }).props.onChange({ target: { checked: true } }); });
+  await act(async () => { await view.root.findByType('form').props.onSubmit({ preventDefault() {} }); });
+  assert.deepEqual(JSON.parse(JSON.stringify(fixture.writes[0].ops)).map(op => op.path[0]), ['environment', 'wslDistribution', 'shellExecutable', 'pluginLab']);
+  assert.equal(fixture.writes[0].ops[2].value, 'path:C:\\PowerShell\\7\\pwsh.exe');
+  assert.equal(fixture.writes[0].ops[3].value, true);
+  assert.equal(fixture.writes[0].ops.some(op => op.path[0] === 'shellChoices'), false);
   await act(async () => { view.unmount(); });
 });
 

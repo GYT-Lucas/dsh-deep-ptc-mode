@@ -1,6 +1,6 @@
 # Deep PTC mode
 
-[中文](README.zh.md) · MIT · **1.7.3**
+[中文](README.zh.md) · MIT · **1.7.4**
 
 [1.7.3 实测汇总 / Test summary](TEST_REPORT.md)
 **Let plugins cooperate. Keep current official PTC tools as the fallback. Stay interruptible while work runs.**
@@ -22,7 +22,7 @@ Compatibility has two directions: follow the installed official PTC composition 
 
 An extension must publish into the `deep-ptc` scope and support the installed host. Keep official fallbacks visible in the provider's own configuration where supported. This is cooperative task-level selection, not a guarantee that every plugin or replacement executor is interchangeable. OPS is one possible provider, not a bundled dependency or a completed integration claim.
 
-The official fallback retains the 1.6.1 derivation mechanism: the plugin reads the running host’s PTC declaration and checks for changes every five seconds; only changed declarations or this plugin’s settings rebuild the preset and follows its module names and configuration. The bundled snapshot is used only if loading, parsing or derivation fails, with a warning. Reload after an official upgrade and use a new preset revision; existing sessions are not forcibly switched. DSH support starts at `>=0.2.2-rc.1` with no upper bound; future host APIs still require verification.
+The official fallback retains the 1.6.1 derivation mechanism: the plugin reads the running host’s PTC declaration and checks for changes every five seconds; only changed declarations or this plugin’s settings rebuild the preset and follows its module names and configuration. The bundled snapshot is used only if loading, parsing or derivation fails, with a warning. Reload after an official upgrade and use a new preset revision; existing sessions are not forcibly switched. DSH support starts at the installed desktop release candidate, `>=0.2.2-rc.1`. Only RC builds are supported; alpha builds are not. There is no upper bound on later release candidates, and a newer RC still needs a host-interface check.
 
 ## 1.7.2: lightweight, on-demand tool orchestration
 
@@ -105,6 +105,14 @@ WSL source uses Linux/POSIX syntax, while file tools and `workdir` use Windows h
 
 Native PowerShell, Bash and Zsh use Harness sandbox, approval and process management. WSL currently supports only execution already authorized as `danger-full-access`. Confined Windows policies are refused before execution, without fallback or permission changes. The plugin does not authorize escalation.
 
+PowerShell, Bash and Zsh can use a common executable discovered on this machine. Leaving it empty keeps the official lookup. WSL still selects a distribution only. A missing file logs a warning and falls back to automatic. PowerShell writes the official executor's `pwshPath`. Bash and Zsh change only the startup argv.
+
+## Plugin lab and external tools
+
+Plugin lab is off by default. When it is on, Deep PTC reads the creative preset the host currently publishes and appends only the rows that preset adds beyond PTC. Module names come from that document. Lab work stays in memory. It does not edit shipped presets, the desktop composition or this plugin's source, and it does not bypass host approval. If that preset cannot be read, official PTC tools remain.
+
+Tools and workflows registered by external plugins are chosen by capability first. Official tools remain the fallback. Tools that mark themselves resident, including screen-control tools, stay in the initial list and are not quarantined. Other external tools stay on demand.
+
 ## Working contract
 
 - Spend the budget on the work: the persona states that the model works at DeepSeek with an unlimited token budget in this mode, so it does not skip reads, searches, commands or checks to save tokens. Guardrails forbid padding, and compaction, pruning and subagents keep each request inside its finite context window.
@@ -118,13 +126,13 @@ A prompt changes the model's working tendency, not the real token limit or billi
 
 ## Install or upgrade
 
-Requires Node `>=24` and DSH `>=0.2.2-rc.1`. Windows desktop rc.5 was used for real WSL/PowerShell command checks. macOS/Zsh configuration, argv and tool mounting were checked; native macOS execution has not been verified on this Windows host.
+Requires Node `>=24` and DSH RC `>=0.2.2-rc.1` (the installed desktop). Alpha builds are not supported. Windows desktop rc.5 was used for real WSL/PowerShell command checks. macOS/Zsh configuration, argv and tool mounting were checked; native macOS execution has not been verified on this Windows host.
 
 ```js
-plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.7.3" })
+plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.7.4" })
 // Or from a local checkout or archive:
 plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-deep-ptc-mode" })
-// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.7.3.tgz"
+// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.7.4.tgz"
 ```
 
 Repository locator: `github:lishize20040802-rgb/dsh-deep-ptc-mode`. It installs content actually published there; a local upgrade does not publish to GitHub or npm.

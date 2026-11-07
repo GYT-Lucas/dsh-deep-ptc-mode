@@ -207,6 +207,19 @@ test('official tools outside the preset stay visible and are never quarantined',
   assert.ok(!state.sdkDefinitions(f.agent).some(d => d.name === 'better_read'), 'a real extension stays on demand');
 });
 
+test('a screen-control tool stays in the initial SDK and is never quarantined', () => {
+  const f = setup();
+  const screen = { ...def('tap_xy', 'Tap a point'), deepPtc: { provider: 'community/phone-control' } };
+  f.live.set(screen.name, screen);
+  assert.ok(f.state.sdkDefinitions(f.agent).some(d => d.name === 'tap_xy'));
+  assert.ok(!f.state.sdkDefinitions(f.agent).some(d => d.name === 'better_read'), 'an ordinary extension stays on demand');
+  const exec = { name: 'tap_xy', agent: f.agent };
+  f.state.dispatched(exec);
+  f.state.observe(exec, broken);
+  assert.equal(f.state.guard(exec), undefined);
+  assert.equal(f.state.status(f.agent).blocked.length, 0);
+});
+
 test('tool names are read from installed source without running it', () => {
   const source = `const EXIT = "exit_plan_mode";
     ctx.tools.register(defineTool({

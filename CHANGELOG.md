@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.7.4 — 2026-11-07
+
+- 支持当前桌面端 DSH RC `>=0.2.2-rc.1`。只声明支持 RC，不支持 alpha。
+- PowerShell、Bash、Zsh 可以选择本机已发现的可执行文件。未选择或文件消失时仍走官方自动查找。WSL 仍只选择发行版。PowerShell 写入官方执行器的 `pwshPath`；Bash 和 Zsh 只替换启动参数，沙箱与批准仍用官方执行器。
+- 插件实验台默认关闭。打开后从宿主正在发布的「创造模式」预设读取多出来的行，模块名以该预设原文为准，不写死官方包名。实验只在内存中进行，不改已发布预设，也不绕过宿主批准。预设读不到时继续使用官方 PTC 工具。
+- 外部插件注册的工具和工作流仍是先按能力选用、官方工具兜底。屏幕控制等自行标明常驻的工具留在初始列表里且不被隔离；普通外部工具仍按需加载。
+- 工具状态按钮在界面投影失败时留空，不再拖垮输入区。
+
+- Declare support for the installed desktop DSH release candidate, `>=0.2.2-rc.1`. Alpha builds are not supported.
+- PowerShell, Bash and Zsh can use a discovered executable. An empty or missing choice keeps the official lookup. WSL still selects a distribution only. PowerShell writes the official `pwshPath`; Bash and Zsh change argv only, and sandbox plus approval stay on the official executor.
+- Plugin lab is off by default. When on, extra rows are copied from the creative preset the host currently publishes, using the module names in that document. Lab work stays in memory, does not edit shipped presets, and does not bypass host approval. If that preset cannot be read, official PTC tools remain.
+- External tools and workflows stay capability-first, with official tools as the fallback. Tools that mark themselves resident, including screen control, stay in the initial list and are not quarantined. Ordinary external tools stay on demand.
+- The tool-state control renders nothing when the composer projection fails.
+
 ## 1.7.3 — 2026-11-05
 
 - 优先读取运行宿主的官方预设注册表并自动检测更新；修复官方工具误隔离、暂停误判和桌面重载按钮的依赖/返回值处理。保留后台运行与插话。
