@@ -1,11 +1,13 @@
 # 深度 PTC 模式
 
-[English](README.md) · MIT · 当前版本：**1.7.4**
+[English](README.md) · MIT · 当前版本：**1.8.0**
 
 [1.7.3 实测汇总 / Test summary](TEST_REPORT.md)
 **让插件协作，让当前官方 PTC 工具兜底，让任务始终可沟通。**
 
 深度 PTC 是面向插件生态的 DeepSeek Harness Agent 模式（preset）：优先在当前可用的外部插件中寻找同功能工具，没有合适能力或插件工具故障时，再用当前官方 PTC 的工具继续完成任务。多个插件可以分工完成同一个任务，各自保留原有参数、发现方式和结果契约；深度 PTC 本身不提供新的任务工具。
+
+1.8.0 增加**会话级预设身份兼容**：不限制预设名称的外部插件看到原生 `deep-ptc`，限制预设名称的插件拿到基座 `ptc`（实验台挂入的创造模式行可拿到 `cordis`），宿主内部保持精确 id。普通 PTC 会话与创造模式会话不受影响。
 
 原有的工作特点完整保留：把模型能力用满，长命令交给后台 job，运行中随时回应你的插话，按任务大小规划，意图不清先问，并在你选择的 WSL / PowerShell / Zsh / Bash 环境执行。
 
@@ -127,6 +129,19 @@ WSL 命令使用 Linux/POSIX 语法；文件工具和 `workdir` 仍用 Windows �
 
 本版没有在真机上点过手机屏幕控制。上面保证的是 SDK 成员资格、隔离规则，以及界面投影失败时的退让。
 
+## 1.8.0：会话级 preset 身份兼容
+
+外部插件常把 agent preset id 当能力开关（例如 dsh-ops 只认 minimal/standard/ptc/cordis）。深度 PTC 注册的 id 是 `deep-ptc`。1.8.0 在插件内部做两次尝试：
+
+- **第一层（原生）**：不限制预设名称的外部插件拿 `deep-ptc`，直接可用；显式声明支持 `deep-ptc` 的插件也拿原生。
+- **第二层（基座）**：限制预设名称、且列表里没有 `deep-ptc` 的插件拿 `ptc`。对 dsh-ops 这类包含 `ptc` 的列表，这一层必定通过；如果列表连 `ptc` 都没有，两层都不匹配（它本来也不支持 PTC）。
+- 宿主内部必须精确的调用（子代理 header、定时任务、注册表自身）始终拿 `deep-ptc`，不影响继承和调度。
+- 普通 PTC 会话本来就返回 `ptc`，其他预设原样返回；官方 PTC 预设没有被替换，也没有改 DSH。
+- 创造模式/插件实验台：加载只读宿主的预设清单和文档，不调用 `composedPreset`；实验台挂进深 PTC 会话的创造模式行若只认 `cordis`，第二层就返回 `cordis`，普通创造模式会话仍原样。
+- 两次尝试都在返回之前决定：宿主不会在插件拒绝时回调，所以读取调用方插件自己的包，判断它是否限制预设名称；不限制就给原生，限制就立即给基座。设置里可用 `presetCompat`、`presetFallback`、`presetSupport` 调整。
+
+局限：这是对 `agentPresets.composedPreset` 的实例包装，依赖宿主内部方法签名；DSH 升级后需要复核。按包内容探测是启发式的，插件如果在代码里用动态拼接的 id，可能识别不到。
+
 ## 工作规则
 
 - **不为 token 省力：** 人设写明在深度求索工作、本模式 token 预算无限，按问题需要而不是成本决定读取、搜索、命令和验证的深度；同时禁止注水和啰嗦，单次上下文仍有限，靠压缩、裁剪和子代理控制。
@@ -145,10 +160,10 @@ WSL 命令使用 Linux/POSIX 语法；文件工具和 `workdir` 仍用 Windows �
 本地目录或构建产物可通过插件管理器安装：
 
 ```js
-plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.7.4" })
+plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.8.0" })
 // 也可从本地目录或安装包安装：
 plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-deep-ptc-mode" })
-// 或 target: "C:\\path\\to\\dsh-deep-ptc-mode-1.7.4.tgz"
+// 或 target: "C:\\path\\to\\dsh-deep-ptc-mode-1.8.0.tgz"
 ```
 
 GitHub 地址：`github:lishize20040802-rgb/dsh-deep-ptc-mode`。该地址安装远端实际内容；本地升级不会自动发布到 GitHub/npm。

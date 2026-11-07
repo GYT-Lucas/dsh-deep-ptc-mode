@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.8.0 — 2026-11-07
+
+- 会话级 preset 身份兼容，两次尝试：不限制预设名称的外部插件拿原生 `deep-ptc`（第一层，直接可用）；限制预设名称、列表里没有 `deep-ptc` 的插件拿基座 `ptc`（第二层，对包含 `ptc` 的列表必定通过）。显式支持 `deep-ptc` 的插件也拿原生。宿主内部（子代理 header、定时任务、注册表自身）保持精确 id，不影响继承与调度。
+- 兼容层在插件本体内实现（`lib/preset-compat.mjs`），随插件启动安装：不需要改 DSH，也不需要给外部插件写逐插件配置。判定先看调用方插件是否限制预设名称：不限制就返回原生，限制就立即返回基座。宿主没有拒绝回调，因此两次尝试在返回前按调用方决定，不做运行时重试。
+- 普通 PTC 与其他预设原样返回；官方 PTC 预设没有被替换。新增设置：`presetCompat`（默认开）、`presetFallback`（默认 `ptc`）、`presetSupport`（按包名覆盖 `native` / `base`）。
+- 修复调用方识别：跳过 Cordis 服务代理插入的 `Object.apply` 帧，否则真实插件会被当成宿主、dsh-ops 门控被误关。
+- 创造模式/插件实验台安全：加载只读 `agentPresets.list/readDocument`，不调用 `composedPreset`（测试保证）；实验台挂入深 PTC 会话的创造模式行若只认 `cordis`，第二层返回 `cordis`，认 `ptc` 的仍返回 `ptc`；普通创造模式会话（`cordis`）原样不变。
+
+- Session-scoped preset identity compatibility as two attempts: an external plugin that does not limit preset names receives the native `deep-ptc` (layer 1, usable as-is); a plugin that limits preset names and does not list `deep-ptc` receives the base `ptc` (layer 2, guaranteed for an allowlist that includes `ptc`). A plugin that explicitly supports `deep-ptc` also receives the native id. Host internals (subagent child headers, scheduled session creation, the registry itself) keep the exact id, so inheritance and scheduling are unaffected.
+- Implemented inside the plugin (`lib/preset-compat.mjs`) and installed at plugin startup: no DSH change and no per-plugin configuration. The decision first checks whether the calling plugin limits preset names: no limit keeps the native id; a limit falls back immediately. The host offers no rejection callback, so both attempts are decided per caller before returning, with no runtime retry.
+- Normal PTC and other presets are returned unchanged; the official PTC preset is not replaced. New settings: `presetCompat` (on by default), `presetFallback` (default `ptc`), `presetSupport` (per-package `native` / `base` override).
+- Caller detection now skips the `Object.apply` frame inserted by the Cordis service proxy; before this, a real plugin looked like the host and dsh-ops stayed inert.
+- Creative mode and the plugin lab stay safe: loading reads `agentPresets.list/readDocument` only and never calls `composedPreset` (covered by a test). A creative row mounted into a Deep PTC session that accepts only `cordis` receives `cordis`; one that accepts `ptc` still receives `ptc`. A normal creative session (preset `cordis`) is unchanged.
+
 ## 1.7.4 — 2026-11-07
 
 - 支持当前桌面端 DSH RC `>=0.2.2-rc.1`。只声明支持 RC，不支持 alpha。

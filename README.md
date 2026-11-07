@@ -1,11 +1,13 @@
 # Deep PTC mode
 
-[中文](README.zh.md) · MIT · **1.7.4**
+[中文](README.zh.md) · MIT · **1.8.0**
 
 [1.7.3 实测汇总 / Test summary](TEST_REPORT.md)
 **Let plugins cooperate. Keep current official PTC tools as the fallback. Stay interruptible while work runs.**
 
 Deep PTC is a DeepSeek Harness agent preset built for a plugin ecosystem. It first looks for a suitable tool among the available external plugins, then continues with the running host’s dynamically discovered official PTC capability when no enhancement fits or a provider fails. Multiple plugins can contribute different parts of a task, each using its own schemas, discovery and result contracts. Deep PTC adds no task tools of its own.
+
+Deep PTC 1.8.0 adds **session-scoped preset identity**: an external plugin that does not restrict preset names sees the native `deep-ptc`, a plugin that restricts them gets the base `ptc` (or `cordis` for a creative-mode row mounted by the plugin lab), and host internals keep the exact id. Normal PTC and creative sessions are untouched.
 
 The same working rules remain: use the model's capability thoroughly, move long commands into managed background jobs, respond to your messages while work runs, plan by task size, clarify intent, and execute in your selected WSL / PowerShell / Zsh / Bash environment.
 
@@ -127,6 +129,19 @@ External plugins are discovered from what they actually register. Tools and work
 
 Phone screen control was not clicked on a device for this release. The guarantee above is the SDK membership, the quarantine rule, and the composer failure path.
 
+## 1.8.0: session-scoped preset identity
+
+External plugins often treat an agent-preset id as a capability switch (dsh-ops recognises only minimal/standard/ptc/cordis). Deep PTC registers `deep-ptc`. 1.8.0 makes two attempts inside the plugin:
+
+- **Layer 1 (native)**: an external plugin that does not limit preset names receives `deep-ptc` and works as-is; a plugin that explicitly declares support for `deep-ptc` also receives the native id.
+- **Layer 2 (base)**: a plugin that limits preset names and does not list `deep-ptc` receives `ptc`. For an allowlist that includes `ptc` (dsh-ops), this layer is guaranteed; if the list does not contain `ptc` either, neither attempt matches (such a plugin does not support PTC at all).
+- Host calls that must stay exact (subagent child headers, scheduled session creation, the registry itself) always receive `deep-ptc`, so inheritance and scheduling are unaffected.
+- A normal PTC session already returns `ptc`; every other preset is returned unchanged. The official PTC preset is not replaced, and DSH is not modified.
+- Creative mode and the plugin lab: loading reads the host roster and documents only, never `composedPreset`. A creative row mounted into a Deep PTC session that accepts only `cordis` gets `cordis`; a normal creative session is unchanged.
+- Both attempts are decided before returning: the host provides no rejection callback, so the layer inspects the calling plugin's own package to see whether it limits preset names. No limit keeps the native id; a limit falls back immediately. Settings: `presetCompat`, `presetFallback`, `presetSupport`.
+
+Limitation: this wraps the host's `agentPresets.composedPreset` instance and depends on its internal signature, so re-check after a DSH upgrade. The per-package probe is heuristic; dynamically assembled ids may not be recognised.
+
 ## Working contract
 
 - Spend the budget on the work: the persona states that the model works at DeepSeek with an unlimited token budget in this mode, so it does not skip reads, searches, commands or checks to save tokens. Guardrails forbid padding, and compaction, pruning and subagents keep each request inside its finite context window.
@@ -143,10 +158,10 @@ A prompt changes the model's working tendency, not the real token limit or billi
 Requires Node `>=24` and DSH RC `>=0.2.2-rc.1` (the installed desktop). Alpha builds are not supported. Windows desktop rc.5 was used for real WSL/PowerShell command checks. macOS/Zsh configuration, argv and tool mounting were checked; native macOS execution has not been verified on this Windows host.
 
 ```js
-plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.7.4" })
+plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.8.0" })
 // Or from a local checkout or archive:
 plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-deep-ptc-mode" })
-// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.7.4.tgz"
+// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.8.0.tgz"
 ```
 
 Repository locator: `github:lishize20040802-rgb/dsh-deep-ptc-mode`. It installs content actually published there; a local upgrade does not publish to GitHub or npm.

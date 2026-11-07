@@ -1,7 +1,7 @@
 {
   "name": "dsh-deep-ptc-mode",
-  "version": "1.7.4",
-  "description": "Lightweight adaptive Deep PTC: live host presets, plugin cooperation and interruptible jobs. / 轻量自适配深度 PTC：动态宿主预设、插件协作与官方兜底、后台可插话。",
+  "version": "1.8.0",
+  "description": "Lightweight adaptive Deep PTC: session-scoped preset identity (native deep-ptc, base ptc, creative cordis fallback), live host presets, plugin cooperation and interruptible jobs. / 轻量自适配深度 PTC：会话级预设身份兼容（原生 deep-ptc、基座 ptc、创造模式 cordis 兜底）、动态宿主预设、插件协作与后台可插话。",
   "type": "module",
   "keywords": [
     "dsh-plugin",
@@ -13,6 +13,9 @@
     "clarification",
     "background-jobs",
     "plugin-compatibility",
+    "preset-compatibility",
+    "dsh-ops",
+    "creative-mode",
     "tool-cooperation",
     "official-ptc-fallback"
   ],
@@ -68,6 +71,7 @@
     "./ask-user": "./lib/ask-user.mjs",
     "./guard": "./lib/guard.mjs",
     "./tool-compatibility": "./lib/tool-compatibility.mjs",
+    "./preset-compat": "./lib/preset-compat.mjs",
     "./environment": "./lib/environment.mjs",
     "./lab": "./lib/lab.mjs",
     "./client": "./lib/client.js",
