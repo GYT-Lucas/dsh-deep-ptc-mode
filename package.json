@@ -1,7 +1,7 @@
 {
   "name": "dsh-deep-ptc-mode",
-  "version": "1.8.1",
-  "description": "Agent mode for DSH fixing five basics: reporting, asking before guessing, staying reachable, planning, and context/token use; plugin-first with official PTC fallback, dynamic preset/tool loading, creative plugin lab, dsh-go screen control, multi-shell and dsh-ops-tested external-tool adaptation. / 面向 DSH 的 Agent 模式：解决汇报、先问、不休眠、做计划、用好上下文与预算五个基本问题；插件优先、官方 PTC 兜底，支持预设/工具动态读取、创造模式实验台、dsh-go 界面控制、多 shell 与外部工具适配（dsh-ops 已专测）。",
+  "version": "1.8.2",
+  "description": "Agent mode for DSH: reporting, asking, reachability, planning, budget use. Plugin-first, official PTC fallback, dynamic tools, creative lab, dsh-go, multi-shell, dsh-ops-tested. / 面向 DSH：汇报、先问、休眠、计划、预算；插件优先、官方兜底，动态工具、创造模式、dsh-go、多 shell 与外部工具（dsh-ops 已测）。",
   "type": "module",
   "keywords": [
     "dsh-plugin",

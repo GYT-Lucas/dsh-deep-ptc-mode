@@ -1,6 +1,6 @@
 # Deep PTC mode
 
-[中文](README.zh.md) · MIT · **1.8.1**
+[中文](README.zh.md) · MIT · **1.8.2**
 
 [1.7.3 实测汇总 / Test summary](TEST_REPORT.md)
 **Reports. Asks. Stays awake. Plans. Stays reachable.**  
@@ -171,10 +171,10 @@ A prompt changes the model's working tendency, not the real token limit or billi
 Requires Node `>=24` and DSH RC `>=0.2.2-rc.1` (the installed desktop). Alpha builds are not supported. Windows desktop rc.5 was used for real WSL/PowerShell command checks. macOS/Zsh configuration, argv and tool mounting were checked; native macOS execution has not been verified on this Windows host.
 
 ```js
-plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.8.1" })
+plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.8.2" })
 // Or from a local checkout or archive:
 plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-deep-ptc-mode" })
-// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.8.1.tgz"
+// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.8.2.tgz"
 ```
 
 Repository locator: `github:lishize20040802-rgb/dsh-deep-ptc-mode`. It installs content actually published there; a local upgrade does not publish to GitHub or npm.

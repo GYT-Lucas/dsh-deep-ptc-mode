@@ -1,6 +1,6 @@
 # 深度 PTC 模式
 
-[English](README.md) · MIT · 当前版本：**1.8.1**
+[English](README.md) · MIT · 当前版本：**1.8.2**
 
 [1.7.3 实测汇总 / Test summary](TEST_REPORT.md)
 **会汇报，先提问，不休眠，有计划，能插话。**  
@@ -173,10 +173,10 @@ WSL 命令使用 Linux/POSIX 语法；文件工具和 `workdir` 仍用 Windows �
 本地目录或构建产物可通过插件管理器安装：
 
 ```js
-plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.8.1" })
+plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.8.2" })
 // 也可从本地目录或安装包安装：
 plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-deep-ptc-mode" })
-// 或 target: "C:\\path\\to\\dsh-deep-ptc-mode-1.8.1.tgz"
+// 或 target: "C:\\path\\to\\dsh-deep-ptc-mode-1.8.2.tgz"
 ```
 
 GitHub 地址：`github:lishize20040802-rgb/dsh-deep-ptc-mode`。该地址安装远端实际内容；本地升级不会自动发布到 GitHub/npm。

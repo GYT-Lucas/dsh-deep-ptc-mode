@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.2 — 2026-11-07
+
+- 修正 npm 元数据：描述控制在 registry 的 255 字符以内，避免被截断；仅描述变更，不改变行为。
+
+- Keep the npm description within the registry's 255-character limit so it is not truncated. Description only; no behavior change.
 ## 1.8.1 — 2026-11-07
 
 - 重写简介与 README：以“五个基本问题”为主线，再梳理“一切皆插件”的六项能力（动态预设/工具读取、创造模式、dsh-go 界面控制、多环境、外部插件工具/工作流适配、Skill 与工具读取）。
