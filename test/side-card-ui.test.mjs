@@ -128,14 +128,16 @@ test('subagents are listed between the environment and the tool state, following
   const f = fixture({ snapshot: windows({ hostPlatform: 'darwin', environment: 'auto', shellChoices: [] }) });
   const sessions = { projectionsBySession: { deep: { values: { subagentCatalog: [
     { id: 'child-1', label: 'Research', mode: 'continuable', activity: 'running' },
-    { id: 'child-2', label: 'Report', mode: 'one-shot', activity: 'inactive' }] } } },
-  byId: { 'child-2': { projectionValues: { subagentTiming: { settledMs: 75_000, lastTurnCompleted: true },
+    { id: 'child-2', label: 'Report', mode: 'one-shot', activity: 'inactive' },
+    { id: 'child-3', label: 'Live', mode: 'one-shot', activity: 'inactive' }] } } },
+  byId: { 'child-3': { running: true }, 'child-2': { projectionValues: { subagentTiming: { settledMs: 75_000, lastTurnCompleted: true },
     tokenUsage: { uncachedInputTokens: 1000, outputTokens: 500, cacheReadTokens: 10_000, cacheWriteTokens: 0 } } } } };
   await withCard(f, { sessions }, async view => {
     assert.deepEqual(radios(view).map(node => node.props.children), ['envAuto', 'Zsh', 'Bash']);
     assert.match(text(view), /envAutoNow/u);
     const rows = view.root.findAllByProps({ className: 'dpt-agent' });
-    assert.deepEqual(rows.map(node => node.props['data-state']), ['running', 'completed']);
+    assert.deepEqual(rows.map(node => node.props['data-state']), ['running', 'completed', 'running'],
+      'a stale catalog entry still runs when the session list says so');
     assert.match(text(view), /agentCompleted · durationMinutes · tokens/u, 'a finished row shows its duration and tokens');
     const sections = view.root.findAllByType('section').map(node => node.props['aria-label']);
     assert.deepEqual(sections, ['environment', 'agentsTitle', 'toolsSection']);
@@ -180,4 +182,15 @@ test('other modes get neither the side card nor the tool controls', async () => 
     assert.equal(radios(view).length, 0);
     assert.equal(f.calls.length, 0);
   });
+});
+
+test('the running composer glow is not overridden by the focus style, and a running subagent\'s status square flashes', () => {
+  const css = readFileSync(new URL('../lib/client.js', import.meta.url), 'utf8');
+  // An !important box-shadow beats an animation, so the focus rule must step aside while the agent works.
+  assert.match(css, /\$\{ON\}:not\(\[data-dpt-busy\]\) \[data-dpt-composer\]:focus-within\{box-shadow:/u);
+  assert.match(css, /\$\{ON\}\[data-dpt-busy\] \[data-dpt-composer\]\{[^}]*animation:dpt-breathe/u);
+  // Only the small status square of a running subagent flashes; the row has no glow of its own.
+  assert.match(css, /\.dpt-agent\[data-state="running"\] \.dpt-agent-dot[^{]*\{[^}]*animation:dpt-dot-flash/u);
+  assert.doesNotMatch(css, /\.dpt-agent\[data-state="running"\]\{/u);
+  assert.match(css, /prefers-reduced-motion:reduce\)\{[^}]*\.dpt-agent-dot/u, 'reduced motion turns the flashing off');
 });

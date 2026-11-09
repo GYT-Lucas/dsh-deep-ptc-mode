@@ -98,3 +98,14 @@ test('creative preset loading never consults composedPreset', async () => {
   assert.equal(called, false);
   assert.deepEqual(loaded.plugins, [{ id: 'tool-added', name: '@someone/renamed' }]);
 });
+
+test('diagnostics go to the installing plugin\'s logger, never to a fixed file path', async () => {
+  const { installPresetCompat } = await import('../lib/preset-compat.mjs');
+  const lines = [];
+  const registry = { composedPreset: () => 'ptc' };
+  const compat = installPresetCompat({ agentPresets: registry, logger: { debug: (...args) => lines.push(args.join(' ')) } }, { enabled: true });
+  compat.dispose();
+  assert.ok(lines.some(line => line.includes('installed')), 'the install is logged through the host logger');
+  const source = (await import('node:fs')).readFileSync(new URL('../lib/preset-compat.mjs', import.meta.url), 'utf8');
+  assert.doesNotMatch(source, /appendFileSync|[A-Z]:[\\/]Users/u);
+});

@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.8.6 — 2026-11-09
+
+- 运行中的输入框泛蓝光：对话运行时输入框边框转蓝并持续呼吸发光。1.8.5 已移植这段动效，但发送后输入框处于聚焦状态，聚焦样式的 `!important` 阴影压过了动画，所以看不到；现在聚焦样式只在空闲时生效。
+- 侧边卡片改为白底蓝点缀：底色与宿主一致（暗色主题跟随宿主深色），分割线与边框为浅灰色，只有选中的执行环境、按钮描边和子代理状态小方块用蓝色；文字与其他地方一样用宿主的黑色与灰色。
+- 侧边卡片停靠时不再是悬浮卡片，而是从对话区右侧分出的一栏：贴住右边缘、上下通高，只留左侧分隔线；对话区让出这一栏的宽度，滚动条不会被遮住。窄屏收起的小胶囊点开后仍是悬浮卡片。
+- 运行中的子代理只有行首的状态小方块闪烁蓝光，整行不发光；收起成小胶囊时也一样。系统开启“减少动态效果”时停止闪烁。
+- 修复：子代理的运行状态改为同时参考会话列表里的实时状态。父会话的子代理目录只在打开官方下拉框时刷新，之前正在运行的子代理会显示为“空闲”。
+- 官方声明的升级检测不再每 5 秒读一次：只在设置变更时，以及每个深度PTC对话创建或恢复、宿主确定预设之前确认一次；声明有变化时先重新派生，新对话直接用上最新预设。确认最多等 5 秒，出错或超时都照常继续。
+- 预设身份兼容层的诊断改写到宿主日志，不再写入固定的本机路径（此前 1.8.0–1.8.5 的包里带有一个写死的 Windows 用户目录）。
+- 工具启动自己的程序失败（`spawn … ENOENT`，无论是否带错误码）判为不可用；外部工具执行的命令不存在（command not found / not recognized）算一次普通失败，连续三次才隔离，不再当作输入错误。
+- 与 refined ui 一致，子代理运行期间也算对话在运行：主代理交出这一轮后，输入框仍保持蓝光和冒泡，直到子代理结束。
+- 输入框上方冒出的光点更多、稍大：频率翻倍，半径略增，样式不变。
+
+- The composer glows blue while the conversation runs. 1.8.5 carried the animation, but the composer keeps focus after sending and the focus style's `!important` shadow beat the animation; the focus style now applies only when idle.
+- The side card is white with blue accents: the host's own background (dark themes follow the host), light grey dividers and borders, and blue only on the selected environment, button outlines and the subagent status squares; text keeps the host's black and grey as elsewhere.
+- Docked, the side card is no longer a floating card but a column split off the right of the conversation: flush with the edge, full height, with only a left divider. The conversation gives up that width, so its scrollbar stays visible. Opened from the narrow-window pill it is still a floating card.
+- For a running subagent only the small status square flashes blue; the row itself does not glow, and the folded pill behaves the same. Reduced motion stops the flashing.
+- Fix: a subagent's running state also follows the live session list. The parent's subagent catalog refreshes only when the official dropdown opens, so a running subagent used to show as idle.
+- The upstream-declaration check no longer reads every 5 seconds: it runs when settings change and once before each Deep PTC conversation is created or resumed, right before the host resolves its preset; a changed declaration is re-derived first, so the new conversation gets the fresh preset. The check waits at most 5 seconds and never blocks on an error.
+- The preset identity layer logs through the host logger instead of a fixed path on one machine (1.8.0–1.8.5 shipped a hard-coded Windows user directory).
+- A tool that cannot start its own program (`spawn … ENOENT`, with or without the code) is unavailable; a command an external tool ran that is not installed (command not found / not recognized) is an ordinary failure, quarantined only after three in a row, instead of wrong input.
+- As in dsh-refined-ui, a running subagent keeps the conversation working: after the main agent hands off its turn, the composer keeps its glow and bubbles until the subagent finishes.
+- More, slightly larger sparks rise from the composer: twice as often and a little bigger, in the same style.
+
 ## 1.8.5 — 2026-11-09
 
 - 插件实验台改为**始终开启**，移除设置开关：新建深度 PTC 会话会读取宿主创造模式并加载相对 PTC 的差量行。

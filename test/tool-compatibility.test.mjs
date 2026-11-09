@@ -366,3 +366,14 @@ test('a positively attributed external shadow never transfers quarantine to the 
  f.live.set('read',f.official);assert.equal(state.guard(exec),undefined);
  assert.ok(state.sdkDefinitions(f.agent).includes(f.official));
 });
+
+test('a tool that cannot start its own program is unavailable; a missing command is a strike, not wrong input', () => {
+  assert.equal(classifyToolOutcome({}, { isError: true, error: { message: 'spawn grok ENOENT', info: { code: 'ENOENT' } } }).kind, 'unavailable');
+  assert.equal(classifyToolOutcome({}, { isError: true, error: { message: 'spawn grok ENOENT' } }).kind, 'unavailable', 'with or without the code');
+  for (const message of ['grok: command not found', "'grok' is not recognized as an internal or external command",
+    "The term 'grok' is not recognized as the name of a cmdlet"]) {
+    assert.equal(classifyToolOutcome({}, { isError: true, error: { message } }).kind, 'failure', message);
+  }
+  assert.equal(classifyToolOutcome({}, { isError: true, error: { message: 'ENOENT: no such file or directory, open notes.md' } }).kind, 'input',
+    'a missing file the model named is still wrong input');
+});

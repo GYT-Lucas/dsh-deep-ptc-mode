@@ -72,12 +72,12 @@ The look from dsh-refined-ui is part of this plugin and applies **only while the
 
 - Calmer light and dark neutrals, a Chinese-first font stack, slim scrollbars, a floating composer card with a flowing blue hairline on focus, a blue gradient send button, soft blue user bubbles, roomier assistant text, and a blue wash on hovered and selected sidebar rows.
 - Interactions: Ctrl/Cmd+K command palette (sessions, new session, plugins, automations), pointer spotlight, click ripple, magnetic send button, `/` to focus the composer, Alt+Up/Down to switch sessions, Ctrl+Alt+D diagnostics.
-- Motion: a breathing composer, a send-button ring and embers while the agent works, sparks on send and completion. Everything honours reduced motion.
-- The floating task windows of dsh-refined-ui are replaced by a **side card beside the conversation** in every Deep PTC session, with three parts:
+- Motion: while the conversation runs, the composer turns blue and breathes (also while focused), with a send-button ring and a steady stream of sparks rising above it; sparks on send and completion. Everything honours reduced motion.
+- The floating task windows of dsh-refined-ui are replaced by a **side card split off the right of the conversation** in every Deep PTC session (flush with the edge, full height; the conversation gives up that width), with three parts:
   - **Execution environment**: Auto / WSL / PowerShell on Windows (Auto / Zsh / Bash on macOS and Linux), the WSL distribution, and a discovered shell version. It writes the same host settings form as the settings page and applies to Deep PTC sessions created afterwards; the current session keeps the environment it was created with.
   - **Subagents**, when there are any: name, state, duration and tokens from the official subagent catalog and timing data; a row opens that subagent's chat in the official right sidebar.
   - **Tool state**: the “Reload all tool states” button and, when present, the failed external tools.
-  In a narrow conversation the card folds into a small pill. It can be collapsed, and that choice is kept on this machine.
+  The column uses the host's background with light grey dividers, blue only for the selected option, button outlines and status squares, and the host's usual black and grey text; for a running subagent only its small status square flashes blue. In a narrow conversation the card folds into a small pill, whose status square flashes the same way. It can be collapsed, and that choice is kept on this machine.
 - While the standalone dsh-refined-ui is still running, this plugin does not draw the same look a second time.
 
 ## 1.7.2: lightweight, on-demand tool orchestration
