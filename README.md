@@ -1,6 +1,6 @@
 # Deep PTC mode
 
-[中文](README.zh.md) · MIT · **1.8.5**
+[中文](README.zh.md) · MIT · **1.8.6**
 
 [1.7.3 实测汇总 / Test summary](TEST_REPORT.md)
 **Reports. Asks. Stays awake. Plans. Stays reachable.**  
@@ -26,7 +26,7 @@ Not every third-party plugin is guaranteed to fit: the interface is verified for
 
 ### 1. Dynamic preset and tool loading
 
-Read the running host's official PTC declaration and inherit its rows as they are; only the persona, execution group, reachability guard, job wrapper and question wrapper are replaced. Rebuild only when the declaration or settings change (checked every five seconds); fall back to the bundled snapshot with a warning if it cannot be loaded, parsed or derived. An official upgrade can add tools without a release of this preset; existing sessions are not forcibly switched.
+Read the running host's official PTC declaration and inherit its rows as they are; only the persona, execution group, reachability guard, job wrapper and question wrapper are replaced. Rebuild only when the declaration or settings change, checked when settings change and once before each Deep PTC conversation is created or resumed, with no polling timer; fall back to the bundled snapshot with a warning if it cannot be loaded, parsed or derived. An official upgrade can add tools without a release of this preset; existing sessions are not forcibly switched.
 
 ### 2. Flexible creative-mode tools
 
