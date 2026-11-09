@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.8.5 — 2026-11-09
+
+- 插件实验台改为**始终开启**，移除设置开关：新建深度 PTC 会话会读取宿主创造模式并加载相对 PTC 的差量行。
+- 旧 profile 中的 `pluginLab` 键仅为兼容保留，值会被忽略；创造模式读不到或进入安全模式时，会话仍只使用 PTC 工具。
+- 设置页不再显示插件实验台选项；其余执行环境与工具设置不变。
+- persona 删去“在 DeepSeek / 深度求索工作”的公司身份表述，改为“你拥有 unlimited token”；预算与反注水规则不变。
+- 新增 Skill 上下文卡片：每轮结束只列当前仍加载、未关闭的 Skill，提供逐项滑动开关与“全部保留 / 全部关闭”；下一条消息发送时固定，关闭项在下轮前从模型上下文移除，历史仍完整保留。卡片同时识别官方 `skill` 工具与 `run_code` 内 PTC 子调用加载的 Skill。状态投影在插件根部注册并按会话 header 激活，升级后已有 Deep PTC 会话也能恢复卡片。
+
+- Make the plugin lab **always on** and remove the settings toggle: a new Deep PTC session reads the host creative preset and appends only the rows it adds.
+- Keep the legacy `pluginLab` key accepted but ignored; if the creative preset cannot be read or the preset enters safe mode, the session keeps the PTC tools only.
+- No plugin-lab option is shown in settings; execution-environment and tool settings are unchanged.
+- Remove the “works at DeepSeek” company identity from the persona and state “you have an unlimited token budget” instead; the budget and anti-padding rules are unchanged.
+- Add the skill context card: after each turn it lists only the skills still loaded and not closed, with per-skill switches and Keep all / Close all. The choice is fixed when the next message is sent; closed skills leave the model context before the next turn while the durable history stays complete. It recognises both direct `skill` tool results and skills loaded by a PTC inner call inside `run_code`. The state is registered at the plugin root and activated by the session header, so existing Deep PTC sessions recover it after an upgrade.
+- Keep every runtime feature inside the `deep-ptc` preset/session: other modes only see the plugin settings page; the client dock returns null before reading Deep PTC projections or mounting controls.
+- 重做 Skill 卡片并移到对话区：挂在最新一轮末尾（官方计划卡片所在的 `conversation.chat.turnTail`），不再塞在输入框下方挤占状态栏；按宿主设计变量重绘卡片、按钮与开关，提示将被移除的数量，超过 4 个折叠。
+- 并入 dsh-refined-ui 的界面精修（换肤、输入框与发送键、气泡、侧栏、Ctrl+K、追光、涟漪、磁吸、快捷键、动效、诊断），只在当前显示深度PTC会话时生效；检测到独立的 refined ui 仍在运行时不重复绘制。
+- 切换 Skill 开关不再在对话里显示 `deep-ptc-skill-state` 命令回显：为该命令登记官方 `conversation.chat.commandview` 渲染器，成功时不显示，失败时原位显示错误；会话日志照常记录。
+- 不并入 refined ui 的任务星图浮窗，改为对话区右侧的子代理面板：按官方子代理目录与计时数据显示状态、用时与 token，点击在官方右侧栏打开子代理对话；窄屏收成胶囊。
+- Rebuild the skill card in the conversation: it sits at the end of the latest turn (`conversation.chat.turnTail`, where official plan cards appear) instead of under the composer, uses the host design tokens, counts the skills about to leave, and folds after four rows.
+- Merge the dsh-refined-ui look and interactions, active only while a Deep PTC conversation is on screen; the standalone plugin is not drawn twice.
+- Skill switches no longer leave a `deep-ptc-skill-state` command row in the conversation: the plugin registers an official `conversation.chat.commandview` renderer that shows nothing on success and the error on failure; the session log still records the command.
+- 侧边卡片收纳执行环境切换（写同一份宿主设置，对新建会话生效）、子代理列表和“重载所有工具状态”；输入框下方不再放任何深度PTC控件。
+- 修复：工具状态与重载命令原先注册在预设内部，会话闲置时客户端读不到状态、命令也不被受理，重载按钮因此一直不显示或点了无效。现改为与 Skill 卡片一样在插件根部注册，预设层复用这份状态；根部不可用时预设层退回自行注册。
+- The side card holds the execution-environment switch (the same host settings, for new sessions), the subagent list and “Reload all tool states”; nothing from Deep PTC sits under the composer any more.
+- Fix: the tool state and the reset command were registered inside the preset, so an idle conversation could neither read the state nor accept the command, and the reload button stayed hidden or did nothing. They are now registered at the plugin root like the skill card, and the preset layer reuses that state, falling back to its own registration when the root one is unavailable.
+- Replace refined ui's floating task windows with a subagent panel beside the conversation, fed by the official subagent catalog and timing data; a row opens the official subagent chat in the right sidebar.
+
 ## 1.8.2 — 2026-11-07
 
 - 修正 npm 元数据：描述控制在 registry 的 255 字符以内，避免被截断；仅描述变更，不改变行为。

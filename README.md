@@ -1,6 +1,6 @@
 # Deep PTC mode
 
-[中文](README.zh.md) · MIT · **1.8.2**
+[中文](README.zh.md) · MIT · **1.8.5**
 
 [1.7.3 实测汇总 / Test summary](TEST_REPORT.md)
 **Reports. Asks. Stays awake. Plans. Stays reachable.**  
@@ -30,7 +30,7 @@ Read the running host's official PTC declaration and inherit its rows as they ar
 
 ### 2. Flexible creative-mode tools
 
-The plugin lab is off by default. When enabled, it reads the host's creative preset and appends only the rows that mode adds, specifically for building DSH plugins. Module names stay as declared; skill directories resolve relative to the creative preset file. Lab packages stay in process memory, are not written to the repository, shipped presets, desktop composition or this plugin's source, and run only through the host's existing approval. Loading reads the roster and documents only; it never calls `composedPreset`.
+The plugin lab is always on for a session. It reads the host's creative preset and appends only the rows that mode adds, specifically for building DSH plugins. Module names stay as declared; skill directories resolve relative to the creative preset file. Lab packages stay in process memory, are not written to the repository, shipped presets, desktop composition or this plugin's source, and run only through the host's existing approval. Loading reads the roster and documents only; it never calls `composedPreset`.
 
 ### 3. dsh-go screen-control adaptation
 
@@ -48,9 +48,37 @@ This is the core interface: external plugins publish tools under their own contr
 
 ### 6. Leaner skill and tool loading
 
+Each turn ends with a skill context card that lists only the skills still loaded and not closed, so the user decides what stays for the next turn.
+
 Search summaries first, then load full schemas: six entries per page by default (maximum eight), up to six schemas within a 16 KB budget per load, and up to twelve recent selections. Quarantine persists with the conversation: clear unavailability blocks immediately; temporary failures need three in a row and a success clears the count; wrong arguments, denial and normal business failures are not tool failures; one reset clears only the current conversation. Skills load in two stages: discovery reads metadata and invocation permission only; the official `skill` tool loads the body.
 
 Three steps: install the plugin → choose an environment under **Settings → Plugins → Deep PTC** → choose **深度PTC模式** in the mode picker for a new task.
+
+## Skill context card (1.8.5)
+
+After each turn, a card at the end of that turn in the conversation (where official plan cards appear) lists only the skills that are **still in context and not closed** — not the whole skill catalog. Each row shows the name, description and a switch, on by default; the card also offers **Keep all / Close all** and says how many skills leave after the next message. More than four rows fold behind “Show all”. Only the latest turn shows the card.
+
+- A switch changes the next turn only. It is fixed when you send the next message and applied before the first model step of that turn.
+- A kept skill stays in context without a reload; a closed skill has its tool-result body replaced with a short marker, while the durable log and human transcript keep the original text.
+- A closed skill disappears from later cards until the model loads it again.
+- If a new task really needs it, the model calls `skill` again and the card lists it after that turn.
+- The state is registered at the plugin root, so an existing Deep PTC session also rebuilds it from history after an upgrade; no new session is required.
+- The card tracks skills loaded directly through the official `skill` tool and skills loaded by a PTC inner call inside `run_code`. The latter usually reach the program rather than the model context, so closing one only removes it from the card, not from program output. `/name` injections are not covered yet.
+- A switch leaves no command row in the conversation (the session log still records it); only a failed switch shows a short error line in place.
+
+## Refined look and side card (1.8.5)
+
+The look from dsh-refined-ui is part of this plugin and applies **only while the conversation on screen is a Deep PTC session**; other modes and the new-session page keep the official look.
+
+- Calmer light and dark neutrals, a Chinese-first font stack, slim scrollbars, a floating composer card with a flowing blue hairline on focus, a blue gradient send button, soft blue user bubbles, roomier assistant text, and a blue wash on hovered and selected sidebar rows.
+- Interactions: Ctrl/Cmd+K command palette (sessions, new session, plugins, automations), pointer spotlight, click ripple, magnetic send button, `/` to focus the composer, Alt+Up/Down to switch sessions, Ctrl+Alt+D diagnostics.
+- Motion: a breathing composer, a send-button ring and embers while the agent works, sparks on send and completion. Everything honours reduced motion.
+- The floating task windows of dsh-refined-ui are replaced by a **side card beside the conversation** in every Deep PTC session, with three parts:
+  - **Execution environment**: Auto / WSL / PowerShell on Windows (Auto / Zsh / Bash on macOS and Linux), the WSL distribution, and a discovered shell version. It writes the same host settings form as the settings page and applies to Deep PTC sessions created afterwards; the current session keeps the environment it was created with.
+  - **Subagents**, when there are any: name, state, duration and tokens from the official subagent catalog and timing data; a row opens that subagent's chat in the official right sidebar.
+  - **Tool state**: the “Reload all tool states” button and, when present, the failed external tools.
+  In a narrow conversation the card folds into a small pill. It can be collapsed, and that choice is kept on this machine.
+- While the standalone dsh-refined-ui is still running, this plugin does not draw the same look a second time.
 
 ## 1.7.2: lightweight, on-demand tool orchestration
 
@@ -60,7 +88,7 @@ One tool/skill directory, `deep_ptc_tools`, coordinates discovery. Task operatio
 - **Quarantine what is actually broken.** A tool that is clearly unavailable (a missing module or API, or a declared unavailable state) is quarantined at once; temporary and unexplained failures need three in a row, and a success clears the count. Wrong arguments or paths, denial, cancellation and normal results describing their own subject (such as a failed build) are not tool failures. Official tools are never quarantined, including those in the profile's root composition (such as `lsp` and `terminal_*`). After quarantine, execution is blocked in code and state persists with the session. Agent recreation, conversation restore and provider reload do not lift quarantine. Capture provenance and reset generation before dispatch; late pre-reset results cannot contaminate the new state. Empty results, normal pagination and ordinary nonzero command exits are not failures either.
 - **Finish the task; do not diagnose failed providers.** Correct wrong input and retry a temporary failure at most twice. Once a tool is quarantined, move promptly to a working equivalent or official fallback, with no probing, retrying or root-cause investigation. Read back only the task state necessary to avoid duplicate effects after a potentially partial mutation.
 - **Brief completion reporting.** The model lists failed tools and declared provider names at completion. The runtime also projects an expandable compatibility notice after a turn ends. Unknown ownership is reported as unknown, never inferred from a tool name.
-- **Reload from below the composer.** “Reload all tool states” clears quarantine and on-demand selections for the current conversation without a model call or stopping running jobs. The user slash command `/deep-ptc-reset-tools` provides the same action.
+- **Reload from the side card.** “Reload all tool states” clears quarantine and on-demand selections for the current conversation without a model call or stopping running jobs. The user slash command `/deep-ptc-reset-tools` provides the same action. The tool state and this command are registered at the plugin root, like the skill card, so they work in an idle conversation too.
 - **Two-stage skill use.** Search the host's resolved, model-invocable skill metadata, then load the exact name with the official `skill` tool and follow its full instructions. Reuse instructions already in context. Discovery never reads skill bodies.
 
 ```js
@@ -124,9 +152,9 @@ PowerShell, Bash and Zsh can use a common executable discovered on this machine.
 
 ## Plugin lab: official creative mode, in memory
 
-Deep PTC is often used for programming, and it can also be used to design a DSH plugin. **Plugin lab** (设置里的「插件实验台」) is off by default. Turn it on under **Settings → Plugins → Deep PTC**, then start a new session. `pluginLab: true` in the Cordis settings is the same switch.
+Deep PTC is often used for programming, and it can also be used to design a DSH plugin. **Plugin lab is always on for a session**; there is no toggle. An existing `pluginLab` key in the Cordis settings is accepted for compatibility but ignored.
 
-When the lab is on, Deep PTC loads the official **creative mode** (创造模式) the same way it loads PTC: from the preset the running host publishes (`agentPresets.readDocument`, preferring the preset named 创造模式, otherwise the shipped id `cordis`). It appends only the rows that creative mode adds beyond the current PTC composition. Module names stay exactly as that document declares them, so an official rename follows the host instead of a name baked into this plugin. Skill directories that the creative preset expresses relative to its own file are resolved against that preset's directory. The desktop already mounts the host runner, so those rows are left to the host and are not copied a second time.
+The lab loads the official **creative mode** (创造模式) the same way it loads PTC: from the preset the running host publishes (`agentPresets.readDocument`, preferring the preset named 创造模式, otherwise the shipped id `cordis`). It appends only the rows that creative mode adds beyond the current PTC composition. Module names stay exactly as that document declares them, so an official rename follows the host instead of a name baked into this plugin. Skill directories that the creative preset expresses relative to its own file are resolved against that preset's directory. The desktop already mounts the host runner, so those rows are left to the host and are not copied a second time.
 
 The lab is an environment for designing and trying a plugin in this process: inspect the live composition, define a syntax-checked package, then run it only through the host's existing approval. Packages stay in memory for this process. They do not write the repository, shipped presets, the desktop composition, or this plugin's source. Host approval stays as the host defined it. If the creative preset cannot be read, or a lab tool is missing or fails, the session continues with the official PTC tools.
 
@@ -138,7 +166,7 @@ External plugins are discovered from what they actually register. Tools and work
 
 - Screen-control tools remain in the initial PTC SDK. They are not folded into the on-demand catalog and they are not quarantined after a failure. A tool qualifies when it sets `resident` (or `deepPtc.resident`), when its presentation carries the `dsh-go/view` key, when its name is `intent`, `collect`, `tap_xy`, or starts with `screen_`, or when its provider is marked as dsh-go, screen control, computer use, or phone control. Any other plugin can use the same `resident` flag. Ordinary extensions stay on demand.
 - Deep PTC does not declare dsh-go's own slots and does not replace its settings. Those forms still come from the Cordis schema, so the app renders them itself.
-- The tool-state control under the composer reads its own state first. If the projection is missing, belongs to another preset, or throws, that control renders nothing. A failure there leaves the input row and the screen-control chrome in place.
+- The side card reads its own state first. If a projection is missing or the session belongs to another preset, that part is left out; a failure in the card leaves the conversation, the input row and the screen-control chrome in place.
 
 Phone screen control was not clicked on a device for this release. The guarantee above is the SDK membership, the quarantine rule, and the composer failure path.
 
@@ -157,7 +185,7 @@ Limitation: this wraps the host's `agentPresets.composedPreset` instance and dep
 
 ## Working contract
 
-- Spend the budget on the work: the persona states that the model works at DeepSeek with an unlimited token budget in this mode, so it does not skip reads, searches, commands or checks to save tokens. Guardrails forbid padding, and compaction, pruning and subagents keep each request inside its finite context window.
+- Spend the budget on the work: the persona grants an unlimited token budget in this mode, so it does not skip reads, searches, commands or checks to save tokens. Guardrails forbid padding, and compaction, pruning and subagents keep each request inside its finite context window.
 - Stay reachable while work runs: no sleeps, busy-polls or long foreground calls. Long commands run as background jobs while the model continues short steps and checks progress without blocking; with nothing left to do it states what is running and ends the turn. Job completion wakes it, and user messages are handled immediately.
 - Plan by expected size: five minutes or less, plan internally and act; five to twenty minutes, show the plan and start without approval; more than twenty minutes, show the plan and wait for approval. Re-plan when the estimate moves up a band. Explicit plan mode always wins.
 - Ask instead of guessing intent: meaning belongs to the user, facts to the tools. Unfamiliar names, competing targets or routes, authoritative sources, expected process, acceptance criteria and scope are asked about rather than guessed or searched for; inspectable facts are looked up. One to three questions with options, recommended first; the user's answer wins.
@@ -171,10 +199,10 @@ A prompt changes the model's working tendency, not the real token limit or billi
 Requires Node `>=24` and DSH RC `>=0.2.2-rc.1` (the installed desktop). Alpha builds are not supported. Windows desktop rc.5 was used for real WSL/PowerShell command checks. macOS/Zsh configuration, argv and tool mounting were checked; native macOS execution has not been verified on this Windows host.
 
 ```js
-plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.8.2" })
+plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.8.5" })
 // Or from a local checkout or archive:
 plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-deep-ptc-mode" })
-// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.8.2.tgz"
+// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.8.5.tgz"
 ```
 
 Repository locator: `github:lishize20040802-rgb/dsh-deep-ptc-mode`. It installs content actually published there; a local upgrade does not publish to GitHub or npm.
@@ -189,10 +217,15 @@ Settings persist through the active profile's Cordis patch:
     environment: auto       # auto | wsl | powershell | zsh | bash
     wslDistribution: ''      # blank uses the Windows default
     shellExecutable: ''      # blank keeps the official lookup
-    pluginLab: false         # true loads the host's creative-mode rows
 ```
 
+An existing `pluginLab` key is accepted but ignored. If the creative preset cannot be read, or the preset enters safe mode, the session keeps the PTC tools only.
+
 Prefer the UI, which uses revisioned, atomic Host form writes.
+
+## Mode isolation
+
+Every runtime feature serves only `deep-ptc` sessions: the tool directory, tool state and execution environment are still mounted by the Deep PTC preset; the skill-card state projection is registered once at the plugin root, but its `init(header)` activates only when `agentPreset === 'deep-ptc'`, so other sessions keep an empty, non-folding state. The command, `agent/pre-step` and client dock each check the preset again. Other modes only see the plugin settings page; the preset-identity layer returns any non-`deep-ptc` exact id unchanged.
 
 ## Compatibility and development
 
