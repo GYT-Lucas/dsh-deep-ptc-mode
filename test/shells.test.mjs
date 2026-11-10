@@ -1,10 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { AUTO_SHELL, discoverShells, resolveShellExecutable, shellNote } from '../lib/shells.mjs';
+import { AUTO_SHELL, discoverShells, resolveShellExecutable, resolveWindowsBash, shellNote } from '../lib/shells.mjs';
 
 const PS51 = 'C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe';
 const PWSH7 = 'C:\\Program Files\\PowerShell\\7\\pwsh.exe';
 const PWSH7_PREVIEW = 'C:\\Program Files\\PowerShell\\7-preview\\pwsh.exe';
+
+test('Windows Bash requires an absolute path to an existing bash.exe file', () => {
+  const exe = 'C:\\Program Files\\Niubash\\winuxcmd\\bin\\bash.exe';
+  assert.equal(resolveWindowsBash(` ${exe} `, path => path === exe), exe);
+  for (const invalid of ['bash.exe', 'C:bash.exe', 'C:/Niubash/pwsh.exe', 'C:/Missing/bash.exe'])
+    assert.equal(resolveWindowsBash(invalid, path => path === exe), '');
+});
 
 function discover(platform, { env = {}, files = [], found = {}, onWhere } = {}) {
   const key = filePath => platform === 'win32'

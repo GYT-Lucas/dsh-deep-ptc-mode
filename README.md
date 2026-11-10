@@ -66,16 +66,18 @@ After each turn, a card at the end of that turn in the conversation (where offic
 - The card tracks skills loaded directly through the official `skill` tool and skills loaded by a PTC inner call inside `run_code`. The latter usually reach the program rather than the model context, so closing one only removes it from the card, not from program output. `/name` injections are not covered yet.
 - A switch leaves no command row in the conversation (the session log still records it); only a failed switch shows a short error line in place.
 
-## Refined look and side card (1.8.5)
+## Visual effects and side card
 
 The look from dsh-refined-ui is part of this plugin and applies **only while the conversation on screen is a Deep PTC session**; other modes and the new-session page keep the official look.
 
 - Calmer light and dark neutrals, a Chinese-first font stack, slim scrollbars, a floating composer card with a flowing blue hairline on focus, a blue gradient send button, soft blue user bubbles, roomier assistant text, and a blue wash on hovered and selected sidebar rows.
 - Interactions: Ctrl/Cmd+K command palette (sessions, new session, plugins, automations), pointer spotlight, click ripple, magnetic send button, `/` to focus the composer, Alt+Up/Down to switch sessions, Ctrl+Alt+D diagnostics.
 - Motion: while the conversation runs, the composer turns blue and breathes (also while focused), with a send-button ring and a steady stream of sparks rising above it; sparks on send and completion. Everything honours reduced motion.
-- The floating task windows of dsh-refined-ui are replaced by a **side card split off the right of the conversation** in every Deep PTC session (flush with the edge, full height; the conversation gives up that width), with three parts:
-  - **Execution environment**: Auto / WSL / PowerShell on Windows (Auto / Zsh / Bash on macOS and Linux), the WSL distribution, and a discovered shell version. It writes the same host settings form as the settings page and applies to Deep PTC sessions created afterwards; the current session keeps the environment it was created with.
+- Each Deep PTC conversation has a **side card** on the right.
+  - **Execution environment** offers WSL, PowerShell, native Bash, or Zsh depending on the host. It writes the same host settings as the settings page and applies to newly created Deep PTC sessions.
+  - **Visual effects** toggles styling and animations immediately and saves the preference in the current client. Keep it off when using an external theme or UI plugin.
   - **Subagents**, when there are any: name, state, duration and tokens from the official subagent catalog and timing data; a row opens that subagent's chat in the official right sidebar.
+  - **Background jobs** shows the current conversation's active and finished jobs. The card has six positions by default, with up to five active jobs first and up to three finished jobs. An expandable row uses one position and shows how many jobs it contains.
   - **Tool state**: the “Reload all tool states” button and, when present, the failed external tools.
   The column uses the host's background with light grey dividers, blue only for the selected option, button outlines and status squares, and the host's usual black and grey text; for a running subagent only its small status square flashes blue. In a narrow conversation the card folds into a small pill, whose status square flashes the same way. It can be collapsed, and that choice is kept on this machine.
 - While the standalone dsh-refined-ui is still running, this plugin does not draw the same look a second time.
@@ -135,6 +137,7 @@ Open **Settings → Plugins → Deep PTC**, choose an environment, save, and cre
 | Automatic | Windows / macOS / Linux | PowerShell on Windows, Zsh on macOS, Bash on Linux |
 | WSL Bash | Windows | Explicit `wsl.exe ... --exec bash -lc`, tool `bash` |
 | PowerShell | Windows | Official native PowerShell executor, tool `pwsh` |
+| Native Bash | Windows | An absolute path to `bash.exe`, such as the Niubash binary bundled with `dsh-ops` |
 | Zsh | macOS / Linux | `/bin/zsh -lc` on macOS; installed `zsh` on Linux; tool `zsh` |
 | Native Bash | macOS / Linux | Official Bash executor, tool `bash` |
 
@@ -146,9 +149,9 @@ WSL source uses Linux/POSIX syntax, while file tools and `workdir` use Windows h
 
 ### Sandbox behavior
 
-Native PowerShell, Bash and Zsh use Harness sandbox, approval and process management. WSL currently supports only execution already authorized as `danger-full-access`. Confined Windows policies are refused before execution, without fallback or permission changes. The plugin does not authorize escalation.
+Native PowerShell and the macOS/Linux shells use Harness sandbox, approval and process management. On Windows, WSL and native Bash require execution already authorized as `danger-full-access`. Choose PowerShell for confined Windows work.
 
-PowerShell, Bash and Zsh can use a common executable discovered on this machine. Leaving it empty keeps the official lookup. WSL still selects a distribution only. A missing file logs a warning and falls back to automatic. PowerShell writes the official executor's `pwshPath`. Bash and Zsh change only the startup argv.
+PowerShell, macOS/Linux Bash and Zsh can use a discovered executable. On Windows, native Bash accepts an absolute path to `bash.exe`, such as `<profile>/node_modules/dsh-ops/runtime/win32-x64/niubash/winuxcmd/bin/bash.exe`. If that path is unavailable, new sessions keep the official shell.
 
 ## Plugin lab: official creative mode, in memory
 
@@ -196,7 +199,7 @@ A prompt changes the model's working tendency, not the real token limit or billi
 
 ## Install or upgrade
 
-Requires Node `>=24` and DSH RC `>=0.2.2-rc.1` (the installed desktop). Alpha builds are not supported. Windows desktop rc.5 was used for real WSL/PowerShell command checks. macOS/Zsh configuration, argv and tool mounting were checked; native macOS execution has not been verified on this Windows host.
+Requires Node `>=24` and DSH `>=0.2.2-rc.1`. The installer rejects the current package on DSH `0.2.1-rc.5` based on its manifest. macOS/Zsh checks cover configuration, argv and tool mounting.
 
 ```js
 plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.8.5" })

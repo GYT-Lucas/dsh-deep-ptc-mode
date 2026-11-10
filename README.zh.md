@@ -66,16 +66,18 @@
 - 卡片会跟踪官方 `skill` 工具直接加载，以及 `run_code` 内 PTC 子调用加载的 Skill；后者通常只进入程序而非模型上下文，关闭时只从卡片移除，不重写程序输出。`/name` 注入暂不纳入。
 - 切换开关不会在对话里留下命令回显（会话日志仍记录这次操作）；只有切换失败时，原位显示一行错误。
 
-## 界面精修与侧边卡片（1.8.5）
+## 界面特效与侧边卡片
 
 dsh-refined-ui 的界面精修并入本插件，**只在当前显示的是深度PTC会话时生效**，切到其他模式或新会话页时恢复官方原样：
 
 - 明暗两套更克制的中性色、中文优先字体、细滚动条；悬浮的输入框卡片，聚焦时出现流动的蓝色细线；蓝色渐变发送键；淡蓝渐变的用户气泡；更宽松的助手正文；侧栏悬停与选中的蓝色底。
 - 交互：Ctrl/⌘+K 命令面板（跳转会话、新会话、插件、自动化任务）、指针追光、点击涟漪、磁吸发送键、`/` 聚焦输入框、Alt+↑/↓ 切换会话、Ctrl+Alt+D 诊断。
 - 动效：对话运行时输入框边框转蓝并呼吸发光（聚焦时也不例外），发送键光环，输入框上方持续冒出光点，发送与完成时的光点；全部遵循系统的“减少动态效果”。
-- 原插件的“任务星图”浮窗不并入，改为深度PTC会话里**从对话区右侧分出的一栏侧边卡片**（贴住右边缘、上下通高，对话区让出这一栏），分三块：
-  - **执行环境**：Windows 上是 自动 / WSL / PowerShell（macOS、Linux 上是 自动 / Zsh / Bash），以及 WSL 发行版和已发现的 Shell 版本。和设置页写同一份宿主设置，对之后新建的深度PTC会话生效；当前会话保持创建时的环境。
+- 深度 PTC 会话在对话区右侧显示**侧边卡片**。
+  - **执行环境**可选择 WSL、PowerShell、原生 Bash 或 Zsh，选项取决于宿主系统。和设置页写同一份宿主设置，对之后新建的深度 PTC 会话生效。
+  - **界面特效**开关即时关闭界面美化与动画，选择保存在当前客户端。使用外部主题或 UI 插件时，建议关闭。
   - **子代理**（有子代理时才出现）：名称、状态、用时和 token，按官方子代理目录与计时数据计算；点击一行在官方右侧栏打开该子代理的对话。
+  - **后台任务**显示当前会话的运行和结束状态。默认最多六个位置，运行中优先且最多五条，已结束最多三条。超出部分合为一条可展开的记录，显示隐藏任务数量。
   - **工具状态**：“重载所有工具状态”按钮，以及调用失败的外部工具（如有）。
   侧栏为白底，浅灰色分割线，蓝色只用于选中项、按钮描边和状态小方块，文字与其他地方一样用黑色和灰色；运行中的子代理只有行首的状态小方块闪烁蓝光。对话区较窄时收成右上角的小胶囊，小方块同样会闪；卡片可收起，选择记在本机。
 - 独立的 dsh-refined-ui 仍在运行时，本插件检测到它就不再重复绘制这一套样式。
@@ -135,10 +137,13 @@ const skills = await tools.deep_ptc_tools({ action: 'skills', query: 'build test
 | 自动 | Windows / macOS / Linux | Windows 选 PowerShell，macOS 选 Zsh，Linux 选 Bash |
 | WSL Bash | Windows | `wsl.exe ... --exec bash -lc`，工具名 `bash` |
 | PowerShell | Windows | Harness 官方原生 PowerShell 执行器，工具名 `pwsh` |
+| 原生 Bash | Windows | 填写 `bash.exe` 的绝对路径，可使用 `dsh-ops` 随包的 Niubash |
 | Zsh | macOS / Linux | macOS 用 `/bin/zsh -lc`；Linux 用已安装的 `zsh`；工具名 `zsh` |
 | 原生 Bash | macOS / Linux | Harness 官方 Bash 执行器，工具名 `bash` |
 
 不适用于宿主的选项会禁用，运行时配置也会拒绝这些选择。WSL 发行版留空时使用 Windows 默认发行版，也可填写 `Ubuntu` 等已安装名称。Linux 上选择 Zsh 前需要安装 Zsh。
+
+Windows 选择原生 Bash 时，可以填入 `<profile>/node_modules/dsh-ops/runtime/win32-x64/niubash/winuxcmd/bin/bash.exe` 的实际绝对路径。路径不可用时新会话保留官方 Shell。原生 Windows Bash 仅在宿主已授权的 `danger-full-access` 下执行，受限模式请选择 PowerShell。
 
 **选择会改变实际执行器和模型看到的命令语法，不只改工具名称。** 执行器隔离在本 preset 中，不修改全局 shell，也不影响其他 preset。保存设置后，新会话使用新版本；已有会话和后台任务继续使用创建时的环境。切换环境时请新建会话，避免同一任务中途换方言。
 
@@ -146,7 +151,7 @@ WSL 命令使用 Linux/POSIX 语法；文件工具和 `workdir` 仍用 Windows �
 
 ### 沙箱边界
 
-原生 PowerShell、Bash 和 Zsh 继续使用 Harness 的沙箱、审批和进程管理。WSL 跨越 Windows/Linux 边界，目前仅支持宿主已经授权的 `danger-full-access` 执行；`read-only` 或 `workspace-write` 调用在启动命令前失败。插件不会自行升权、改变默认权限或悄悄换 shell。
+原生 PowerShell 和 macOS/Linux 的 Shell 使用 Harness 的沙箱、审批和进程管理。Windows 的 WSL 与原生 Bash 仅在宿主已授权的 `danger-full-access` 下执行，受限模式请选择 PowerShell。
 
 选择 PowerShell、Bash 或 Zsh 时，可以指定本机已经发现的常见可执行文件。留空则沿用官方查找顺序。WSL 仍只选择发行版。所选文件不存在时记一条警告并回到自动。PowerShell 的选择写入官方执行器的 `pwshPath`。Bash 和 Zsh 只改启动参数。
 
@@ -196,7 +201,7 @@ WSL 命令使用 Linux/POSIX 语法；文件工具和 `workdir` 仍用 Windows �
 
 ## 安装和升级
 
-要求 Node `>=24`、DSH RC `>=0.2.2-rc.1`（当前桌面端）。不支持 alpha 版本。1.3.0 已用 Windows 桌面端 rc.5 做 WSL/PowerShell 命令验证。macOS/Zsh 分支做了配置、工具挂载与参数测试，尚未在 macOS 真机执行。
+要求 Node `>=24`、DSH `>=0.2.2-rc.1`。使用 `0.2.1-rc.5` 时，安装器会根据插件清单拒绝安装当前版本。macOS/Zsh 分支做了配置、工具挂载与参数测试，尚未在 macOS 真机执行。
 
 本地目录或构建产物可通过插件管理器安装：
 

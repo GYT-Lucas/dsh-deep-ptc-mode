@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { deriveDeepPtc, personaFrom, PRESET_META, SHELL_ROWS, SHELL_TOOLS, walkRows } from '../lib/model.mjs';
+import { availableEnvironments, deriveDeepPtc, personaFrom, PRESET_META, SHELL_ROWS, SHELL_TOOLS, walkRows } from '../lib/model.mjs';
 import { OFFICIAL_PACKAGE, OFFICIAL_PRESET_ID, parseOfficialPreset } from '../lib/upstream.mjs';
 
 const root = new URL('../', import.meta.url);
@@ -169,14 +169,17 @@ export function check(upstreamPath) {
     deriveDeepPtc(upstream, { environment: 'wsl', wslDistribution: '' }, 'win32').preset,
     'bundled fallback snapshot is in sync with the pinned declaration');
 
+  let environmentsChecked = 0;
   for (const platform of ['win32', 'darwin', 'linux']) {
-    for (const environment of platform === 'win32' ? ['auto', 'wsl', 'powershell'] : ['auto', 'zsh', 'bash']) {
-      const { preset, report } = deriveDeepPtc(upstream, { environment, wslDistribution: '' }, platform);
+    for (const environment of availableEnvironments(platform)) {
+      const shellExecutable = platform === 'win32' && environment === 'bash' ? 'C:/niubash/bash.exe' : '';
+      const { preset, report } = deriveDeepPtc(upstream, { environment, wslDistribution: '', shellExecutable }, platform);
       const resolved = environment === 'auto'
         ? (platform === 'win32' ? 'powershell' : platform === 'darwin' ? 'zsh' : 'bash')
         : environment;
-      assertDerivation(upstream, preset, { environment: resolved, platform });
+      assertDerivation(upstream, preset, { environment: resolved, platform, shellExecutable });
       if (report.replacedShellRows.length === 0) throw new Error('official shell rows were not found; review the declaration');
+      environmentsChecked++;
     }
   }
   return {
@@ -184,7 +187,7 @@ export function check(upstreamPath) {
     verifiedUpstream: provenance.verifiedUpstream,
     officialTopLevelRows: upstream.plugins.length,
     personaWords: (personaFrom().prefix + ' ' + personaFrom().suffix).split(/\s+/u).length,
-    environmentsChecked: 9,
+    environmentsChecked,
     peerPackages: requiredPeerPackages().length,
   };
 }

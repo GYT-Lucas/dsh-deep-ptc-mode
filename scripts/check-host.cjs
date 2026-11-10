@@ -124,7 +124,8 @@ registerHooks({ resolve(specifier, context, next) {
     description: 'Verify WSL tool and working directory', workdir: path.resolve(__dirname) },
     { signal: new AbortController().signal, callId: 'ptc-wsl-tool-probe' });
   assert.equal(bashResult.exitCode, 0);
-  assert.match(JSON.stringify(bashResult), /PTC_TOOL_WSL_OK:\/mnt\/c\//);
+  const drive = path.parse(__dirname).root[0].toLowerCase();
+  assert.ok(bashResult.stdout.text.startsWith(`PTC_TOOL_WSL_OK:/mnt/${drive}/`));
   console.log('Real isolated WSL tool and cwd: passed');
   const job = await bashTool.execute({ command: 'printf "PTC_BACKGROUND_OK\\n"',
     description: 'Verify managed WSL background output', workdir: path.resolve(__dirname), run_in_background: true },
@@ -138,6 +139,23 @@ registerHooks({ resolve(specifier, context, next) {
   console.log('Managed WSL background job and output: passed');
   await rootContext.loader.remove(wslGroup.id);
   await rootContext.loader.await();
+  const windowsBash = process.env.PTC_WINDOWS_BASH;
+  if (windowsBash) {
+    const nativeGroup = model.configuredPreset(template, { environment: 'bash', shellExecutable: windowsBash }, 'win32')
+      .plugins.find(row => row.id === 'execution');
+    await rootContext.loader.create(nativeGroup);
+    await rootContext.loader.await();
+    await waitFor(() => rootContext.tools.definitions.some(definition => definition.name === 'bash'), 'native Bash tool registered');
+    const nativeTool = rootContext.tools.definitions.find(definition => definition.name === 'bash');
+    const result = await nativeTool.execute({ command: 'printf "PTC_WINDOWS_BASH:%s:%s\\n" "$BASH_VERSION" "$OSTYPE"',
+      description: 'Verify native Windows Bash', workdir: __dirname },
+      { signal: new AbortController().signal, callId: 'ptc-native-bash-probe' });
+    assert.equal(result.exitCode, 0);
+    assert.match(result.stdout.text, /PTC_WINDOWS_BASH:.*msys/);
+    console.log('Real isolated native Windows Bash: passed');
+    await rootContext.loader.remove(nativeGroup.id);
+    await rootContext.loader.await();
+  }
   const zshGroup = model.configuredPreset(template, { environment: 'zsh', wslDistribution: '' }, 'darwin').plugins.find(row => row.id === 'execution');
   await rootContext.loader.create(zshGroup);
   await rootContext.loader.await();

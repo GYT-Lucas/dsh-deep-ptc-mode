@@ -15,7 +15,7 @@ test('auto selects the host native shell without guessing the existing root prov
   assert.equal(resolveEnvironment('auto', 'darwin'), 'zsh');
   assert.equal(resolveEnvironment('auto', 'linux'), 'bash');
   assert.throws(() => resolveEnvironment('wsl', 'darwin'), /unavailable/);
-  assert.throws(() => resolveEnvironment('bash', 'win32'), /unavailable/);
+  assert.equal(resolveEnvironment('bash', 'win32'), 'bash');
   assert.throws(() => resolveEnvironment('unknown', 'win32'), /unavailable/);
 });
 
@@ -36,6 +36,28 @@ test('WSL fails before execution in confined or missing policies', () => {
   assert.doesNotThrow(() => assertExecutionPolicy('zsh', { mode: 'workspace-write' }));
 });
 
+test('native Windows Bash maps an explicit executable and retains official rows without one', () => {
+  const exe = 'C:/Program Files/dsh-ops/niubash/winuxcmd/bin/bash.exe';
+  const spec = { command: 'printf "%s" "$PWD"', workdir: 'C:/workspace' };
+  const { preset, report } = deriveDeepPtc(template, {
+    environment: 'bash', shellExecutable: exe, pluginLab: true,
+    creativePlugins: template.plugins.filter(row => SHELL_ROWS.ids.includes(row.id)),
+  }, 'win32');
+  const group = preset.plugins.find(row => row.id === 'execution');
+  assert.equal(group.config[0].config.shellExecutable, exe);
+  assert.equal(group.config[1].config.upstream, '@deepseek-ai/dsh-tool-bash');
+  assert.equal(preset.plugins.some(row => row.id === 'tool-pwsh'), false);
+  assert.equal(report.environment, 'bash');
+  assert.deepEqual(shellArgv('bash', spec, '', 'win32', exe), [exe, '-c', spec.command]);
+  assert.throws(() => assertExecutionPolicy('bash', { mode: 'workspace-write' }, 'win32'), /No command was executed/);
+  assert.doesNotThrow(() => assertExecutionPolicy('bash', { mode: 'danger-full-access' }, 'win32'));
+
+  const fallback = deriveDeepPtc(template, { environment: 'bash' }, 'win32');
+  assert.equal(fallback.report.environment, 'official');
+  assert.deepEqual(fallback.report.replacedShellRows, []);
+  assert.ok(fallback.preset.plugins.some(row => row.id === 'tool-pwsh'));
+});
+
 test('macOS Zsh uses an explicit native binary and preserves source literally', () => {
   const spec = { command: 'print -r -- "$ZSH_VERSION"', workdir: '/tmp/project' };
   assert.deepEqual(shellArgv('zsh', spec, '', 'darwin'), ['/bin/zsh', '-lc', spec.command]);
@@ -46,7 +68,8 @@ test('environment selection isolates executors and leaves every other official t
   const before = structuredClone(template);
   const upstream = loadOfficialPreset({ presetPath: new URL('fixtures/ptc-0.2.2-rc.1.patch.yml', import.meta.url) }).preset;
   for (const platform of ['win32', 'darwin', 'linux']) for (const environment of availableEnvironments(platform)) {
-    const preset = configuredPreset(upstream, { environment, wslDistribution: 'Ubuntu' }, platform);
+    const shellExecutable = platform === 'win32' && environment === 'bash' ? 'C:/niubash/bash.exe' : '';
+    const preset = configuredPreset(upstream, { environment, wslDistribution: 'Ubuntu', shellExecutable }, platform);
     const group = preset.plugins.find(row => row.id === 'execution');
     assert.deepEqual(group.isolate, { shell: true });
     assert.equal(group.config.filter(row => row.id.startsWith('tool-')).length, 1);
