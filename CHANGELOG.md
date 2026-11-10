@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.8.7 — 2026-11-10
+
+- 在深度 PTC 侧栏加入界面特效开关。关闭后即时撤掉界面美化和动画，设置保存在当前客户端。使用外部主题或 UI 插件时建议关闭。
+- 新增后台任务卡片。默认最多六个位置，运行中的任务优先且最多五条，已结束最多三条。折叠入口占一个位置并显示隐藏数量。
+- 合并 PTC 和创造模式的 Skill 目录，修复重复注册文件系统提供器后误退安全模式的问题。
+- 修复 Electron 特效层覆盖窗口拖动区的问题，区分工具重载命令不可用和执行失败，并添加中英文插件详情。
+- Windows 可填写 Niubash 的 `bash.exe` 路径来使用原生 Bash。受限模式可选 PowerShell。宿主最低版本为 DSH `0.2.2-rc.1`。
+
+- Add a visual effects switch to the Deep PTC side card. It applies immediately and remembers the choice in the current client. Keep it off when using an external theme or UI plugin.
+- Show background jobs in six preview positions. Up to five active jobs take priority over up to three finished jobs. The overflow row uses one position and shows the hidden count.
+- Merge PTC and creative-mode skill directories into one filesystem provider to avoid an unnecessary fallback to safe mode.
+- Restore Electron window dragging with effects enabled, distinguish unavailable reload commands from execution errors, and add English and Chinese plugin details.
+- Support native Windows Bash through an explicit Niubash `bash.exe` path. Use PowerShell for confined Windows work. The minimum host version is DSH `0.2.2-rc.1`.
+
 ## 1.8.6 — 2026-11-09
 
 - 运行中的输入框泛蓝光：对话运行时输入框边框转蓝并持续呼吸发光。1.8.5 已移植这段动效，但发送后输入框处于聚焦状态，聚焦样式的 `!important` 阴影压过了动画，所以看不到；现在聚焦样式只在空闲时生效。

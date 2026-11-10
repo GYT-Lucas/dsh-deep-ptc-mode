@@ -1,6 +1,6 @@
 # Deep PTC mode
 
-[中文](README.zh.md) · MIT · **1.8.6**
+[中文](README.zh.md) · MIT · **1.8.7**
 
 [1.7.3 实测汇总 / Test summary](TEST_REPORT.md)
 **Reports. Asks. Stays awake. Plans. Stays reachable.**  
@@ -202,7 +202,7 @@ A prompt changes the model's working tendency, not the real token limit or billi
 Requires Node `>=24` and DSH `>=0.2.2-rc.1`. The installer rejects the current package on DSH `0.2.1-rc.5` based on its manifest. macOS/Zsh checks cover configuration, argv and tool mounting.
 
 ```js
-plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.8.5" })
+plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.8.7" })
 // Or from a local checkout or archive:
 plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-deep-ptc-mode" })
 // Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.8.5.tgz"

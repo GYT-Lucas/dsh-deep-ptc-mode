@@ -138,5 +138,8 @@ test('teardown during asynchronous registration releases the late definition exa
 });
 
 test('package and verified fixture checks pass', () => {
-  assert.equal(check().version, '1.8.6');
+  const { version } = check();
+  const lock = JSON.parse(readFileSync(new URL('../package-lock.json', import.meta.url), 'utf8'));
+  assert.equal(lock.version, version);
+  assert.equal(lock.packages[''].version, version);
 });

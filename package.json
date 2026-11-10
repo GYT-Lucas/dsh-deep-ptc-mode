@@ -1,6 +1,6 @@
 {
   "name": "dsh-deep-ptc-mode",
-  "version": "1.8.6",
+  "version": "1.8.7",
   "description": "Deep PTC agent mode for DSH with interruptible background jobs, selectable shells, and plugin-aware tools.",
   "type": "module",
   "keywords": [
