@@ -22,20 +22,24 @@ const baseline = [
 
 test('copies only rows the creative declaration adds, using that declaration\'s module name', () => {
   const root = 'C:\\presets\\cordis';
-  const additions = creativeAdditions(creativeFixture(), baseline, { root });
+  const ptc = structuredClone(baseline);
+  const provider = ptc.find(row => row.id === 'skill-filesystem');
+  provider.config = { customSkillDirs: ['shared-skills'], hidden: true };
+  const creative = creativeFixture();
+  creative.find(row => row.id === 'skill-filesystem').config.customSkillDirs.push('shared-skills', skillExpr);
+  const additions = creativeAdditions(creative, ptc, { root });
   const future = additions.find(row => row.id === 'tool-future');
   assert.equal(future.name, '@someone/renamed-runtime-tool');
   assert.deepEqual(future.config, { keep: true });
-  const skill = additions.find(row => row.id === 'skill-filesystem-creative');
-  assert.equal(skill.name, '@vendor/skill-filesystem-next');
-  assert.deepEqual(skill.config.customSkillDirs, [join(root, 'skills')]);
-  assert.equal(additions.some(row => row.id === 'tool-fs' || row.id === 'persona'), false);
+  assert.equal(provider.name, '@deepseek-ai/dsh-skill-filesystem');
+  assert.deepEqual(provider.config, { customSkillDirs: ['shared-skills', join(root, 'skills')], hidden: true });
+  assert.deepEqual(additions.map(row => row.id), ['tool-future']);
 });
 
 test('a renamed creative module is copied under the new name', () => {
   const plugins = creativeFixture();
   plugins.find(row => row.id === 'tool-future').name = '@someone/runtime-tool-v2';
-  const additions = creativeAdditions(plugins, baseline);
+  const additions = creativeAdditions(plugins, structuredClone(baseline));
   assert.equal(additions.find(row => row.id === 'tool-future').name, '@someone/runtime-tool-v2');
 });
 

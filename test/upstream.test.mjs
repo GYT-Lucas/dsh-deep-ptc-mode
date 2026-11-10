@@ -142,7 +142,9 @@ test('default derivation is unchanged, and plugin lab copies only rows the creat
   assert.equal(lab.plugins.filter(row => row.id === 'persona').length, 1);
   assert.ok(!lab.plugins.some(row => String(row.name).includes('host-runner')));
   assert.ok(lab.plugins.some(row => row.name === 'dsh-deep-ptc-mode/lab'));
-  assert.equal(lab.plugins.find(row => row.id === 'skill-filesystem-creative').config.customSkillDirs[0], join('C:/presets', 'cordis', 'skills'));
+  const skillProviders = lab.plugins.filter(row => row.id.startsWith('skill-filesystem'));
+  assert.equal(skillProviders.length, 1);
+  assert.deepEqual(skillProviders[0].config.customSkillDirs, [join('C:/presets', 'cordis', 'skills')]);
 });
 
 test('reads the official executors from the base deployment declaration', () => {
