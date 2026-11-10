@@ -59,6 +59,20 @@ test('shell pauses are measured across bash, zsh, PowerShell and cmd forms', () 
   assert.equal(shellPauseSeconds('echo sleeping 30'), 0);
 });
 
+test('a PowerShell job body is background work, the commands around it are not', () => {
+  const pause = command => shellPauseSeconds(command, 'powershell');
+  assert.equal(pause('Start-Job { Start-Sleep 60 }'), 0);
+  assert.equal(pause('$job = Start-Job -ScriptBlock { if ($true) { Start-Sleep -Seconds 60 } }'), 0);
+  assert.equal(pause('Start-ThreadJob { Start-Sleep 60 }; Write-Output started'), 0);
+  assert.equal(pause('$job=Start-Job { Start-Sleep 60 }'), 0);
+  assert.equal(pause('Start-Job { npm test }; Start-Sleep 30'), 30);
+  assert.equal(pause("ForEach-Object -InputObject 'Start-Job' -Process { Start-Sleep 60 }"), 60);
+  assert.equal(pause('Start-Job { # { inside a comment\n  Start-Sleep 60\n}; Start-Sleep 30'), 30);
+  assert.equal(pause('Start-Job { <# { #> Start-Sleep 60 }; Start-Sleep 30'), 30);
+  assert.equal(pause('if ($ready) { Start-Sleep 60 }'), 60);
+  assert.equal(shellPauseSeconds('start-job { sleep 60; }'), 60, 'a brace group in bash is foreground');
+});
+
 test('run_code programs may pause briefly but not wait on timers or block the thread', () => {
   assert.equal(programPauseIssue('await new Promise(r => setTimeout(r, 1000)); return 1'), undefined);
   assert.equal(programPauseIssue("import { setTimeout } from 'node:timers/promises'; await setTimeout(2000)"), undefined);
@@ -87,6 +101,9 @@ test('the guard refuses waiting and leaves ordinary work alone', () => {
   assert.equal(call('run_code', { code: 'return await tools.bash({ command: "ls" })' }), undefined);
   assert.match(call('ask_user_question', { questions: [], timeout: -1 }), /timeout <= 300/);
   assert.match(call('ask_user_question', { questions: [], timeout: 900 }), /timeout <= 300/);
+  assert.match(call('ask_user_question', { questions: [], timeout: 0 }), /0 < timeout/);
+  assert.match(call('ask_user_question', { questions: [], timeout: -30 }), /0 < timeout/);
+  assert.equal(call('ask_user_question', { questions: [] }), undefined, 'the official default timeout is left alone');
   assert.equal(call('ask_user_question', { questions: [], timeout: 120 }), undefined);
   assert.equal(call('job_output', { job_id: 'job-1', wait: true }), undefined);
   agent.inbox.nextStep.push({ id: 'm1', source: { kind: 'user' } });
@@ -177,6 +194,55 @@ test('a timed question becomes pending when the user writes instead of answering
   setTimeout(() => host.steer(agent, 'actually, use option B'), 20);
   assert.deepEqual(await asking, { pending: true });
   assert.deepEqual(closed, [timeoutError]);
+});
+
+test('a reshaped question service keeps its official wait and is reported', async () => {
+  const host = fakeHost();
+  const watch = steeringWatch(host.ctx);
+  const agent = fakeAgent();
+  let reports = 0;
+  let answer;
+  const service = { askTimed: () => new Promise(resolve => { answer = resolve; }) };
+  const questions = steerableQuestions(service, watch, () => { reports++; });
+  const first = questions.askTimed({ agent }, 'call-1', 120_000);
+  host.steer(agent, 'never mind');
+  await new Promise(resolve => setTimeout(resolve, 10));
+  assert.equal(reports, 1);
+  answer({ answered: true });
+  assert.deepEqual(await first, { answered: true });
+});
+
+test('an empty question wait record keeps the official result when a user message is already pending', async () => {
+  const agent = fakeAgent();
+  agent.inbox.nextStep.push({ id: 'm1', source: { kind: 'user' } });
+  let reports = 0;
+  const service = {
+    waits: new Map([[agent, new Map([['call-1', null]])]]),
+    askTimed: () => Promise.resolve({ answered: true }),
+  };
+  const questions = steerableQuestions(service, {}, () => { reports++; });
+  assert.deepEqual(await questions.askTimed({ agent }, 'call-1', 120_000), { answered: true });
+  assert.equal(reports, 0);
+});
+
+test('an incompatible question record is reported without rejecting the official wait', async () => {
+  const host = fakeHost();
+  const agent = fakeAgent();
+  let answer;
+  let report;
+  let closeCalls = 0;
+  const reported = new Promise(resolve => { report = resolve; });
+  const service = {
+    waits: new Map([[agent, new Map([['call-1', { close() { closeCalls++; } }]])]]),
+    askTimed: () => new Promise(resolve => { answer = resolve; }),
+  };
+  const questions = steerableQuestions(service, steeringWatch(host.ctx), report);
+  const pending = questions.askTimed({ agent }, 'call-1', 120_000);
+  host.steer(agent, 'continue');
+  await reported;
+  assert.equal(closeCalls, 0);
+  answer({ answered: true });
+  assert.deepEqual(await pending, { answered: true });
 });
 
 test('the preset wraps the official shell, job and question modules and caps the foreground wait', () => {

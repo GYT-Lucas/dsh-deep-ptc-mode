@@ -1,16 +1,12 @@
 # 深度 PTC 模式
 
-[English](README.md) · MIT · 当前版本 **1.8.7**
+[English](README.md) · MIT · 当前版本 **1.8.8**
 
-[1.7.3 实测汇总 / Test summary](TEST_REPORT.md)
-**会汇报，先提问，不休眠，有计划，能插话。**  
-**五个基本问题，一套模式；一切皆插件，官方始终兜底。**
+[更新日志](CHANGELOG.md) · [测试报告](TEST_REPORT.md)
 
-深度 PTC 不是又一个工具包，而是针对模型执行任务时五个基本问题设计的 DeepSeek Harness Agent 模式：闷头干活不汇报、有歧义先猜不问、跑起来就休眠失联、不做计划或计划不可见、以及没有用好原 PTC 的简洁上下文与 unlimited token 提示词。
+深度 PTC 是 DeepSeek Harness 的 Agent 模式，支持进度汇报、澄清提问、按任务规模制定计划，以及可插话的后台任务。它以已安装的官方 PTC 预设为基础，提供可选执行环境、按需加载工具和 Skill，以及面向第三方插件的两层预设身份适配。
 
-这五个问题先由提示词和代码一起解决；在此基础上，再按官方“一切皆插件”的理念，把预设与工具动态读取、创造模式、dsh-go 界面控制、多 shell 环境、外部插件工具/工作流适配、Skill 与工具读取流程逐项接进来。深度 PTC 本身不提供新的任务工具，它提供的是让外部插件的新工具能被识别、加载、调用的那层接口。
-
-不承诺适配所有第三方插件：接口对已测试场景（dsh-ops）负责，其他插件走同一接口，具体仍取决于插件自身是否支持当前宿主、是否按契约发布工具。
+1.8.8 的模式选择器、设置页和会话界面会随 DSH 设置自动切换中英文。本版还改进了工具故障隔离、PowerShell 等待检测和第三方预设识别。
 
 ## 五个基本问题
 
@@ -40,11 +36,11 @@
 
 支持 WSL Bash、PowerShell（含 5.1 与 7 的可执行文件选择）、Zsh、原生 Bash。只对本模式生效，不改全局 shell；沙箱、审批和进程管理仍用官方实现。WSL 目前仅支持宿主已授权的 `danger-full-access`。
 
-### 5. 增强外部插件工具/工作流的适配（dsh-ops 已专测）
+### 5. 外部插件工具与工作流
 
 这是深度 PTC 的核心接口：外部插件按自己的契约发布工具，深度 PTC 负责发现、按需加载、隔离故障，并在失败时回到官方 PTC。外部插件需支持当前宿主，并在 `deep-ptc` 作用域中发布工具；深度 PTC 不把任何插件写成依赖，也不替换执行器。
 
-**dsh-ops 专门测试**：它在工具门控里只认 `minimal/standard/ptc/cordis`；深度 PTC 先给原生 `deep-ptc`，识别到它限制预设名后，按它实际接受的基座 id 返回 `ptc`（创造模式行可用 `cordis`）；宿主内部仍保持精确 `deep-ptc`。结果是 dsh-ops 不需要改造，它的新工具就能在深度 PTC 会话里被识别和调用；其他外部插件走同一接口，按包内容判断。未归属工具不隔离；只有能明确归属的外部提供者才可能被隔离；官方工具永不禁用。
+通过 `composedPreset` 查询预设的第三方插件使用同一套兼容规则。以实测的 dsh-ops 为例，它只认 `minimal/standard/ptc/cordis`，所以在深度 PTC 会话里收到兼容 ID `ptc`，宿主实际挂载的仍是 `deep-ptc`。只有能明确归属的外部工具才会进入故障隔离。
 
 ### 6. Skill 与工具的读取流程优化
 
@@ -52,7 +48,7 @@
 
 先搜摘要，再加载完整 schema：默认每页 6 项、最多 8 项；完整 schema 每次最多 6 个、总预算 16 KB；最多保留 12 个近期选择。故障按对话隔离：明确不可用立即禁用；临时错误连续 3 次才禁用，成功一次清零；参数错误、权限拒绝、业务失败不算故障；一键重载只清当前对话。Skill 两阶段：目录只查元数据与权限，正文交给官方 `skill` 工具，检索不读正文。
 
-使用三步：安装插件 → 在 **设置 → 插件 → 深度 PTC** 里选执行环境 → 新建任务时在模式选择器里选「深度PTC模式」。
+安装插件，在 **设置 → 插件 → 深度 PTC** 选择执行环境，然后新建会话并选择 **深度 PTC 模式**。
 
 ## Skill 上下文卡片（1.8.5）
 
@@ -67,6 +63,8 @@
 - 切换开关不会在对话里留下命令回显（会话日志仍记录这次操作）；只有切换失败时，原位显示一行错误。
 
 ## 界面特效与侧边卡片
+
+Deep PTC 的模式名称、设置页和会话界面会随 DSH「设置 → 通用 → 语言」在中文和英文之间切换。
 
 dsh-refined-ui 的界面精修并入本插件，**只在当前显示的是深度PTC会话时生效**，切到其他模式或新会话页时恢复官方原样：
 
@@ -130,7 +128,7 @@ const skills = await tools.deep_ptc_tools({ action: 'skills', query: 'build test
 
 ## 选择 WSL、PowerShell 或 macOS 工具
 
-安装并加载后，打开 **设置 → 插件 → 深度 PTC**，选择执行环境并保存，再新建一个「深度PTC模式」会话。
+安装并加载后，打开 **设置 → 插件 → 深度 PTC**，选择执行环境并保存，再新建一个 **深度 PTC 模式**会话。
 
 | 选项 | 宿主 | 实际执行方式 / 模型工具 |
 | --- | --- | --- |
@@ -177,14 +175,14 @@ WSL 命令使用 Linux/POSIX 语法；文件工具和 `workdir` 仍用 Windows �
 
 ## 1.8.0：会话级 preset 身份兼容
 
-外部插件常把 agent preset id 当能力开关（例如 dsh-ops 只认 minimal/standard/ptc/cordis）。深度 PTC 注册的 id 是 `deep-ptc`。1.8.0 在插件内部做两次尝试：
+外部插件常用预设 ID 判断是否启用能力。只有用户选择深度 PTC 的会话会做这层适配。DSH 挂载 `deep-ptc`，并将这个预设 ID 写入会话记录。像 dsh-ops 这样依赖官方 ID 的插件通过 `composedPreset` 查询时会收到 `ptc`。
 
 - **第一层（原生）**：不限制预设名称的外部插件拿 `deep-ptc`，直接可用；显式声明支持 `deep-ptc` 的插件也拿原生。
-- **第二层（基座）**：限制预设名称、且列表里没有 `deep-ptc` 的插件拿 `ptc`。对 dsh-ops 这类包含 `ptc` 的列表，这一层必定通过；如果列表连 `ptc` 都没有，两层都不匹配（它本来也不支持 PTC）。
+- **第二层（兼容别名）**：调用方规则要求官方预设 ID 时，默认返回 `ptc`。别名只用于这次身份查询。
 - 宿主内部必须精确的调用（子代理 header、定时任务、注册表自身）始终拿 `deep-ptc`，不影响继承和调度。
 - 普通 PTC 会话本来就返回 `ptc`，其他预设原样返回；官方 PTC 预设没有被替换，也没有改 DSH。
 - 创造模式/插件实验台：加载只读宿主的预设清单和文档，不调用 `composedPreset`；实验台挂进深 PTC 会话的创造模式行若只认 `cordis`，第二层就返回 `cordis`，普通创造模式会话仍原样。
-- 两次尝试都在返回之前决定：宿主不会在插件拒绝时回调，所以读取调用方插件自己的包，判断它是否限制预设名称；不限制就给原生，限制就立即给基座。设置里可用 `presetCompat`、`presetFallback`、`presetSupport` 调整。
+- `composedPreset` 每次只返回一个 ID。兼容层根据调用方的包内容或显式配置，在返回前决定用哪一层。宿主没有提供校验结果回调。设置里可用 `presetCompat`、`presetFallback`、`presetSupport` 调整。
 
 局限：这是对 `agentPresets.composedPreset` 的实例包装，依赖宿主内部方法签名；DSH 升级后需要复核。按包内容探测是启发式的，插件如果在代码里用动态拼接的 id，可能识别不到。
 
@@ -206,10 +204,10 @@ WSL 命令使用 Linux/POSIX 语法；文件工具和 `workdir` 仍用 Windows �
 本地目录或构建产物可通过插件管理器安装：
 
 ```js
-plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.8.7" })
+plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.8.8" })
 // 也可从本地目录或安装包安装：
 plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-deep-ptc-mode" })
-// 或 target: "C:\\path\\to\\dsh-deep-ptc-mode-1.8.5.tgz"
+// 或 target: "C:\\path\\to\\dsh-deep-ptc-mode-1.8.8.tgz"
 ```
 
 GitHub 地址：`github:lishize20040802-rgb/dsh-deep-ptc-mode`。该地址安装远端实际内容；本地升级不会自动发布到 GitHub/npm。
@@ -258,7 +256,7 @@ npm pack
 - `cordis.patch.yml`：宿主设置入口。
 - `lib/index.mjs`：配置 schema、preset 注册和版本切换。
 - `lib/model.mjs`：平台选择、参数、隔离配置和环境说明，以及从官方声明派生 preset。
-- `lib/executor.mjs`：继承基础部署声明里的官方 bash 执行器，实现 WSL/Zsh。
+- `lib/executor.mjs`：继承基础部署声明里的官方 bash 执行器，实现 WSL/Zsh（执行器类在 `lib/mapped-shell.mjs`）。
 - `lib/terminal.mjs`：运行官方声明指定的 shell 工具，等待可被用户消息打断，并提供 Zsh 方言与工具名。
 - `lib/jobs-tool.mjs`、`lib/ask-user.mjs`：运行官方声明指定的 job 工具与提问工具，等待可被用户消息打断。
 - `lib/host.mjs`：通过已安装运行时解析这些官方模块。

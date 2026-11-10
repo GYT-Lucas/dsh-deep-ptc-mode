@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "深度 PTC 模式",
-    "description": "适用于 DeepSeek Harness 的深度 PTC 模式，支持可插话的后台任务、可选执行环境与外部工具适配。",
+    "description": "适用于 DeepSeek Harness 的深度 PTC 模式，支持可插话的后台任务、可选执行环境和第三方 PTC 兼容。界面随 DSH 设置自动切换中英文。",
     "detail": "README.zh.md"
   }
 }

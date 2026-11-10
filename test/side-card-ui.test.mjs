@@ -19,13 +19,16 @@ function fakeDocument() {
 }
 
 function fixture({ snapshot, mutate = async () => true, outcome = { ok: true, value: { commandId: 'c', result: { kind: 'success' } } },
-  storage = new Map(), browser = {}, activeEffects = false, jobsService } = {}) {
+  storage = new Map(), browser = {}, activeEffects = false, jobsService, localeId } = {}) {
   let plugin;
   const slots = new Map();
   const writes = [];
   const calls = [];
   let current = snapshot;
   const listeners = new Set();
+  const localeListeners = new Set();
+  let dictionaries;
+  let localeRevision = 0;
   const effects = [];
   const form = snapshot === undefined ? undefined : {
     subscribe(listener) { listeners.add(listener); return () => listeners.delete(listener); },
@@ -48,8 +51,16 @@ function fixture({ snapshot, mutate = async () => true, outcome = { ok: true, va
     localStorage: { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) },
     ...browser,
   });
-  const ctx = { locale: { bind: () => key => key === 'jobsMore' ? 'jobsMore {count}' : key, register() {} },
-    effect(callback, label) { if (activeEffects && label?.endsWith(': active session')) effects.push(callback()); },
+  const ctx = { locale: {
+      bind: () => key => dictionaries?.[localeId]?.[key] ?? (key === 'jobsMore' ? 'jobsMore {count}' : key),
+      register(_, value) { dictionaries = value; },
+      getSnapshot: () => ({ revision: localeRevision }),
+      subscribe(listener) { localeListeners.add(listener); return () => localeListeners.delete(listener); },
+    },
+    effect(callback, label) {
+      if (label === undefined) callback();
+      if (activeEffects && label?.endsWith(': active session')) effects.push(callback());
+    },
     get: name => name === 'jobs' ? jobsService : undefined,
     configForms: { get: () => form, whileServed: () => () => {} },
     remote: { commands: { async execute(...args) { calls.push(args); return outcome; } } },
@@ -57,7 +68,8 @@ function fixture({ snapshot, mutate = async () => true, outcome = { ok: true, va
   };
   ctx.inject = (deps, callback) => { assert.deepEqual(Array.from(deps), ['remote', 'remote.commands']); callback(ctx); };
   plugin.apply(ctx);
-  return { slots, card: slots.get('deep-ptc-side'), writes, calls, dispose: () => effects.forEach(cleanup => cleanup()) };
+  return { slots, card: slots.get('deep-ptc-side'), writes, calls, dispose: () => effects.forEach(cleanup => cleanup()),
+    setLocale: id => { localeId = id; localeRevision++; for (const listener of localeListeners) listener(); } };
 }
 
 const windows = (value = {}) => ({ status: 'ready', writable: true, revision: 7, value: {
@@ -171,18 +183,21 @@ test('subagents are listed between the environment and the tool state, following
 test('the side switch immediately removes and restores visual effects and remembers the last choice', async () => {
   const document = fakeDocument();
   const attrs = new Set();
-  const canvases = new Set();
+  const layers = new Set();
+  const keyHandlers = new Set();
   const frames = new Set();
   const storage = new Map();
   let nextFrame = 0;
   Object.assign(document, {
-    addEventListener() {}, removeEventListener() {},
-    createElement: () => ({ setAttribute() {}, getContext: () => ({ setTransform() {} }), remove() { canvases.delete(this); } }),
+    addEventListener(type, listener) { if (type === 'keydown') keyHandlers.add(listener); },
+    removeEventListener(type, listener) { if (type === 'keydown') keyHandlers.delete(listener); },
+    createElement: tagName => ({ tagName, dataset: {}, style: {}, setAttribute() {},
+      getContext: () => ({ setTransform() {} }), remove() { layers.delete(this); } }),
   });
   Object.assign(document.body, {
     toggleAttribute: (name, on) => on ? attrs.add(name) : attrs.delete(name),
     hasAttribute: name => attrs.has(name), removeAttribute: name => attrs.delete(name),
-    appendChild: canvas => canvases.add(canvas),
+    appendChild: layer => layers.add(layer),
   });
   const f = fixture({ snapshot: windows(), storage, activeEffects: true, browser: {
     document,
@@ -190,33 +205,43 @@ test('the side switch immediately removes and restores visual effects and rememb
     cancelAnimationFrame: frame => frames.delete(frame),
     MutationObserver: class { observe() {} disconnect() {} },
   } });
+  const renderBridge = preset => f.slots.get('deep-ptc-session').render({
+    sessionId: 'deep', useProjection: () => preset, useSessionStatus: () => new Map([['deep', { running: true }]]),
+  });
+  const openDiagnostics = () => {
+    for (const listener of keyHandlers) listener({ key: 'd', ctrlKey: true, altKey: true, preventDefault() {} });
+  };
   let bridge;
   try {
-    await act(async () => { bridge = Renderer.create(f.slots.get('deep-ptc-session').render({
-      sessionId: 'deep', useProjection: () => 'deep-ptc', useSessionStatus: () => new Map([['deep', { running: true }]]),
-    })); });
+    await act(async () => { bridge = Renderer.create(renderBridge('deep-ptc')); });
     await withCard(f, {}, async view => {
       const control = () => view.root.findByProps({ role: 'switch', 'aria-label': 'visualEffects' });
       assert.equal(control().props['aria-checked'], true);
       assert.match(text(view), /visualEffectsHint/u);
-      assert.equal(canvases.size, 1);
+      assert.deepEqual([...layers].map(layer => layer.tagName), ['canvas']);
+      openDiagnostics();
+      assert.deepEqual([...layers].map(layer => layer.tagName), ['canvas', 'pre']);
       assert.ok(frames.size > 0);
       await act(async () => control().props.onClick());
       assert.equal(control().props['aria-checked'], false);
       assert.equal(attrs.has('data-dpt-ui'), false);
-      assert.equal(canvases.size, 0);
+      assert.equal(layers.size, 0);
       assert.equal(frames.size, 0);
       await withCard(fixture({ snapshot: windows(), storage }), {}, async fresh => {
         assert.equal(fresh.root.findByProps({ role: 'switch', 'aria-label': 'visualEffects' }).props['aria-checked'], false);
       });
       await act(async () => control().props.onClick());
-      assert.equal(canvases.size, 1);
+      assert.deepEqual([...layers].map(layer => layer.tagName), ['canvas']);
+      openDiagnostics();
+      await act(async () => bridge.update(renderBridge('standard')));
+      assert.equal(layers.size, 0);
+      assert.equal(keyHandlers.size, 0);
     });
   } finally {
     await act(async () => bridge?.unmount());
     f.dispose();
   }
-  assert.equal(canvases.size, 0);
+  assert.equal(layers.size, 0);
   assert.equal(frames.size, 0);
 });
 
@@ -289,6 +314,21 @@ test('the reload button resets only the current conversation through the host co
     await act(async () => { await reload.props.onClick(); });
     assert.deepEqual(plain(f.calls), [['session-A', '/deep-ptc-reset-tools', []]]);
     assert.match(text(view), /toolResetDone/u);
+  });
+});
+
+test('the side card and an existing reload result follow the DSH language', async () => {
+  const f = fixture({ snapshot: windows(), localeId: 'en' });
+  await withCard(f, { sessions: { jobsBySession: { deep: jobs(1, 'running') } } }, async view => {
+    assert.match(text(view), /Visual effects.*Background jobs/u);
+    const reload = view.root.findAllByType('button').find(node => node.props.children === 'Reload all tool states');
+    await act(async () => reload.props.onClick());
+    assert.match(text(view), /Tool states reloaded for this conversation/u);
+    await act(async () => f.setLocale('zh'));
+    assert.match(text(view), /界面特效.*后台任务.*运行中.*本对话工具状态已重载/u);
+    assert.doesNotMatch(text(view), /Tool states reloaded for this conversation/u);
+    assert.equal(f.calls.length, 1);
+    assert.equal(f.writes.length, 0);
   });
 });
 

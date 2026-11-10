@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.8.8 — 2026-11-10
+
+- 模式选择器、会话模式标签、设置页、侧栏和命令面板随 DSH 的语言设置切换中英文。切换语言会保留当前预设选择和未保存的表单输入。
+- 第三方插件通过同一套两层规则识别预设。适配优先使用 `deep-ptc`，需要兼容时默认返回 `ptc` 别名。DSH 仍实际挂载 `deep-ptc`。探测现在覆盖 `dist`，忽略注释和无关比较，并在插件升级后刷新。
+- 工具隔离要求错误消息明确标注 HTTP 状态。带 `ERR_MODULE_NOT_FOUND` 或 `MODULE_NOT_FOUND` 的模块加载失败会立即隔离，工具内部缺陷累计三次才隔离。
+- PowerShell 等待检测识别真正的 `Start-Job` 和 `Start-ThreadJob` 脚本块，继续检查同一条命令里的前台等待。
+- `ask_user_question` 要求正数超时。若宿主提问记录为空或结构不兼容，保留官方等待。结构不兼容时记录一次诊断。
+- 映射执行器抽到独立模块，并合并宿主执行器的兼容性检查。
+
+- The mode picker, conversation preset label, settings, sidebar, and command palette follow DSH's Chinese or English language setting. Switching languages preserves the selected preset and unsaved form input.
+- Third-party plugins share a two-layer preset check. It prefers `deep-ptc` and defaults to the `ptc` alias when compatibility is needed. DSH still mounts `deep-ptc`. Detection covers `dist` packages, ignores comments and unrelated comparisons, and refreshes after plugin updates.
+- Tool quarantine requires an explicit HTTP status in error text. Module load failures carrying `ERR_MODULE_NOT_FOUND` or `MODULE_NOT_FOUND` quarantine immediately. Defects inside a tool still require three consecutive failures.
+- PowerShell wait detection recognises actual `Start-Job` and `Start-ThreadJob` script blocks and still checks foreground waits in the same command.
+- `ask_user_question` requires a positive timeout. Empty or incompatible host question records preserve the official wait, and incompatible records are logged once.
+- The mapped executor now lives in a standalone module with a shared check for the host executor interface.
+
 ## 1.8.7 — 2026-11-10
 
 - 在深度 PTC 侧栏加入界面特效开关。关闭后即时撤掉界面美化和动画，设置保存在当前客户端。使用外部主题或 UI 插件时建议关闭。

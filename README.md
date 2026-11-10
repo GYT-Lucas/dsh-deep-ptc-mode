@@ -1,16 +1,12 @@
 # Deep PTC mode
 
-[中文](README.zh.md) · MIT · **1.8.7**
+[中文](README.zh.md) · MIT · **1.8.8**
 
-[1.7.3 实测汇总 / Test summary](TEST_REPORT.md)
-**Reports. Asks. Stays awake. Plans. Stays reachable.**  
-**Five basics, one mode; everything is a plugin, with the official preset always as the fallback.**
+[Changelog](CHANGELOG.md) · [Test report](TEST_REPORT.md)
 
-Deep PTC is not another tool bundle. It is a DeepSeek Harness agent preset built around five basic problems in model work: working silently without reporting, guessing instead of asking when intent is ambiguous, sleeping and becoming unreachable during a task, not planning or not showing the plan, and not using the original PTC preset's concise context plus its unlimited-token prompt.
+Deep PTC is a DeepSeek Harness agent mode with progress reports, clarifying questions, task-size planning, and interruptible background work. It builds on the installed official PTC preset with selectable shells, on-demand tools and skills, and a two-layer preset identity adapter for third-party plugins.
 
-Those five are handled first by prompts and code. On top of that, following DSH's “everything is a plugin” philosophy, the preset adds dynamic preset/tool loading, creative-mode tools for building DSH plugins, dsh-go screen-control adaptation, wider shell support, external plugin tool/workflow adaptation, and a leaner skill/tool loading flow. Deep PTC adds no task tools itself; it provides the interface that lets a plugin's new tools be discovered, loaded and called.
-
-Not every third-party plugin is guaranteed to fit: the interface is verified for dsh-ops and reused by other plugins, but a plugin still has to support the installed host and publish its tools under the expected contract.
+In 1.8.8 the mode picker, settings, and conversation UI follow DSH's Chinese or English language setting. This release also refines tool quarantine, PowerShell wait detection, and third-party preset detection.
 
 ## Five basic problems
 
@@ -40,11 +36,11 @@ Screen-control tools stay in the initial PTC SDK, are not moved on demand, and a
 
 WSL Bash, PowerShell (including discovered 5.1 and 7 executables), Zsh and native Bash are supported. The choice applies to this preset only and does not change the global shell; sandbox, approval and process management stay official. WSL currently requires the host-authorized `danger-full-access` mode.
 
-### 5. External plugin tool/workflow adaptation (dsh-ops tested)
+### 5. External plugin tools and workflows
 
 This is the core interface: external plugins publish tools under their own contract; Deep PTC discovers them, loads them on demand, quarantines failures per conversation and falls back to official PTC. Extensions must support the installed host and publish into the `deep-ptc` scope; Deep PTC does not depend on any specific plugin or replace the executor.
 
-**dsh-ops is specifically tested.** Its gate recognises only `minimal/standard/ptc/cordis`. Deep PTC first offers the native `deep-ptc`; when it detects that the plugin restricts preset names, it returns the base id the plugin accepts — `ptc` (or `cordis` for a creative row) — while host internals keep the exact `deep-ptc`. dsh-ops therefore needs no change for its new tools to be discovered and called; other plugins use the same interface, judged by their own packages. Unattributed tools are not quarantined; only a positively attributed external provider can be, and official tools are never quarantined.
+Third-party plugins that query `composedPreset` share the same compatibility rules. The tested dsh-ops package recognises only `minimal/standard/ptc/cordis`, so its query receives `ptc` in a session that DSH mounts as `deep-ptc`. Quarantine applies only to tools attributed to external providers.
 
 ### 6. Leaner skill and tool loading
 
@@ -52,7 +48,7 @@ Each turn ends with a skill context card that lists only the skills still loaded
 
 Search summaries first, then load full schemas: six entries per page by default (maximum eight), up to six schemas within a 16 KB budget per load, and up to twelve recent selections. Quarantine persists with the conversation: clear unavailability blocks immediately; temporary failures need three in a row and a success clears the count; wrong arguments, denial and normal business failures are not tool failures; one reset clears only the current conversation. Skills load in two stages: discovery reads metadata and invocation permission only; the official `skill` tool loads the body.
 
-Three steps: install the plugin → choose an environment under **Settings → Plugins → Deep PTC** → choose **深度PTC模式** in the mode picker for a new task.
+Install the plugin, choose an environment under **Settings → Plugins → Deep PTC**, and select **Deep PTC Mode** for a new conversation.
 
 ## Skill context card (1.8.5)
 
@@ -67,6 +63,8 @@ After each turn, a card at the end of that turn in the conversation (where offic
 - A switch leaves no command row in the conversation (the session log still records it); only a failed switch shows a short error line in place.
 
 ## Visual effects and side card
+
+The Deep PTC mode label, settings, and conversation UI switch between Chinese and English with DSH **Settings → General → Language**.
 
 The look from dsh-refined-ui is part of this plugin and applies **only while the conversation on screen is a Deep PTC session**; other modes and the new-session page keep the official look.
 
@@ -130,7 +128,7 @@ These rules apply only to Deep PTC sessions. They rely on the desktop "busy Ente
 
 ## Choose an execution environment
 
-Open **Settings → Plugins → Deep PTC**, choose an environment, save, and create a new **深度PTC模式** session.
+Open **Settings → Plugins → Deep PTC**, choose an environment, save, and create a new **Deep PTC Mode** session.
 
 | Selection | Host | Executor / tool |
 | --- | --- | --- |
@@ -175,14 +173,14 @@ Phone screen control was not clicked on a device for this release. The guarantee
 
 ## 1.8.0: session-scoped preset identity
 
-External plugins often treat an agent-preset id as a capability switch (dsh-ops recognises only minimal/standard/ptc/cordis). Deep PTC registers `deep-ptc`. 1.8.0 makes two attempts inside the plugin:
+External plugins often use the preset ID to enable capabilities. The adapter runs only for sessions using Deep PTC. DSH mounts `deep-ptc` and records that preset ID on the session. A plugin such as dsh-ops that relies on official preset IDs receives `ptc` when it queries `composedPreset`.
 
 - **Layer 1 (native)**: an external plugin that does not limit preset names receives `deep-ptc` and works as-is; a plugin that explicitly declares support for `deep-ptc` also receives the native id.
-- **Layer 2 (base)**: a plugin that limits preset names and does not list `deep-ptc` receives `ptc`. For an allowlist that includes `ptc` (dsh-ops), this layer is guaranteed; if the list does not contain `ptc` either, neither attempt matches (such a plugin does not support PTC at all).
+- **Layer 2 (compatibility alias)** returns `ptc` by default when the caller's gate requires an official preset ID. The alias applies to that query.
 - Host calls that must stay exact (subagent child headers, scheduled session creation, the registry itself) always receive `deep-ptc`, so inheritance and scheduling are unaffected.
 - A normal PTC session already returns `ptc`; every other preset is returned unchanged. The official PTC preset is not replaced, and DSH is not modified.
 - Creative mode and the plugin lab: loading reads the host roster and documents only, never `composedPreset`. A creative row mounted into a Deep PTC session that accepts only `cordis` gets `cordis`; a normal creative session is unchanged.
-- Both attempts are decided before returning: the host provides no rejection callback, so the layer inspects the calling plugin's own package to see whether it limits preset names. No limit keeps the native id; a limit falls back immediately. Settings: `presetCompat`, `presetFallback`, `presetSupport`.
+- `composedPreset` returns one ID per call. The adapter selects a layer from the caller's package or explicit settings before returning. The host exposes no callback for the caller's validation result. The settings are `presetCompat`, `presetFallback` and `presetSupport`.
 
 Limitation: this wraps the host's `agentPresets.composedPreset` instance and depends on its internal signature, so re-check after a DSH upgrade. The per-package probe is heuristic; dynamically assembled ids may not be recognised.
 
@@ -202,10 +200,10 @@ A prompt changes the model's working tendency, not the real token limit or billi
 Requires Node `>=24` and DSH `>=0.2.2-rc.1`. The installer rejects the current package on DSH `0.2.1-rc.5` based on its manifest. macOS/Zsh checks cover configuration, argv and tool mounting.
 
 ```js
-plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.8.7" })
+plugin_manager({ action: "install_bundle", target: "dsh-deep-ptc-mode@1.8.8" })
 // Or from a local checkout or archive:
 plugin_manager({ action: "install_bundle", target: "C:\\path\\to\\dsh-deep-ptc-mode" })
-// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.8.5.tgz"
+// Or target: "C:\\path\\to\\dsh-deep-ptc-mode-1.8.8.tgz"
 ```
 
 Repository locator: `github:lishize20040802-rgb/dsh-deep-ptc-mode`. It installs content actually published there; a local upgrade does not publish to GitHub or npm.

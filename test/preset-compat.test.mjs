@@ -3,9 +3,10 @@
 // loading must never depend on composedPreset.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, utimesSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { decidePresetId, packageProbe, installPresetCompat, inspectCaller } from '../lib/preset-compat.mjs';
 import { loadCreativePreset } from '../lib/upstream.mjs';
 
@@ -52,6 +53,70 @@ test('probe collects the preset ids a restricted plugin accepts', () => {
   }
 });
 
+test('a plugin published as build output only is still probed', () => {
+  const root = mkdtempSync(join(tmpdir(), 'deep-ptc-dist-'));
+  try {
+    const dir = join(root, 'compiled');
+    mkdirSync(join(dir, 'dist'), { recursive: true });
+    writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'compiled', main: 'dist/index.js' }));
+    writeFileSync(join(dir, 'dist', 'index.js'), "if (ctx.agentPresets.composedPreset(agent) !== 'ptc') return;\n");
+    assert.deepEqual(packageProbe(dir, 'deep-ptc'), { declares: false, restricted: true, accepts: ['ptc'] });
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('only code that tests a preset id is restricted, and only a literal declares the native id', () => {
+  const root = mkdtempSync(join(tmpdir(), 'deep-ptc-markers-'));
+  try {
+    const unrelated = fakePackage(root, 'unrelated', 'const activePreset = ctx.agentPresets.composedPreset(agent);\nconst dark = theme==="standard";\n');
+    const prose = fakePackage(root, 'prose', "// TODO: support 'deep-ptc' later.\n/* A note about \"deep-ptc\". */\nexport const gate = preset => ['ptc', 'standard'].includes(preset);\n");
+    const reversed = fakePackage(root, 'reversed', "export const gate = preset => 'ptc' == preset;\n");
+    const alias = fakePackage(root, 'alias', "const p=ctx.agentPresets.composedPreset(agent); if(p==='ptc') start();\n");
+    const membership = fakePackage(root, 'membership', "const gate = presetId => new Set(['ptc', 'cordis']).has(presetId);\n");
+    const switchGate = fakePackage(root, 'switch-gate', "switch (session.agentPreset) { case 'ptc': start(); }\n");
+    const commentedGate = fakePackage(root, 'commented-gate', "// if (preset === 'ptc') return;\nconst preset = ctx.agentPresets.composedPreset(agent);\n");
+    const unrelatedInfo = packageProbe(unrelated, 'deep-ptc');
+    assert.equal(unrelatedInfo.restricted, false, 'a comparison that is not about presets');
+    assert.equal(decidePresetId('deep-ptc', opts, unrelatedInfo), 'deep-ptc');
+    assert.deepEqual(packageProbe(prose, 'deep-ptc'), { declares: false, restricted: true, accepts: ['ptc', 'standard'] });
+    assert.equal(decidePresetId('deep-ptc', opts, packageProbe(prose, 'deep-ptc')), 'ptc');
+    assert.equal(packageProbe(reversed, 'deep-ptc').restricted, true);
+    assert.equal(packageProbe(alias, 'deep-ptc').restricted, true);
+    assert.equal(packageProbe(membership, 'deep-ptc').restricted, true);
+    assert.equal(packageProbe(switchGate, 'deep-ptc').restricted, true);
+    assert.equal(packageProbe(commentedGate, 'deep-ptc').restricted, false);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a plugin updated in place is probed again', () => {
+  const root = mkdtempSync(join(tmpdir(), 'deep-ptc-update-'));
+  try {
+    const dir = fakePackage(root, 'updated', "export const gate = preset => preset === 'ptc';\n");
+    assert.equal(packageProbe(dir, 'deep-ptc').declares, false);
+    assert.equal(packageProbe(dir, 'deep-ptc'), packageProbe(dir, 'deep-ptc'), 'cached while the manifest is unchanged');
+    writeFileSync(join(dir, 'lib.js'), "export const PRESETS = ['deep-ptc', 'ptc'];\n");
+    utimesSync(join(dir, 'package.json'), new Date(), new Date(Date.now() + 60_000));
+    assert.equal(packageProbe(dir, 'deep-ptc').declares, true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('host frames are recognised by official package path, not by a similar name', () => {
+  const root = mkdtempSync(join(tmpdir(), 'deep-ptc-host-'));
+  try {
+    const dir = fakePackage(root, 'my-dsh-subagent-helper', "export const gate = preset => preset === 'ptc';\n");
+    const frames = file => ['Error', '    at composedPreset (file:///x/preset-compat.mjs:1:1)', `    at gate (${file}:1:1)`].join('\n');
+    assert.equal(inspectCaller(frames('file://' + join(dir, 'lib.js')), 'deep-ptc').host, false);
+    assert.equal(inspectCaller(frames('file:///opt/app/node_modules/@deepseek-ai/dsh-subagent/lib/index.js'), 'deep-ptc').host, true);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('the Cordis service proxy frame is skipped, so the real caller is classified', () => {
   const root = mkdtempSync(join(tmpdir(), 'deep-ptc-proxy-'));
   try {
@@ -69,6 +134,69 @@ test('the Cordis service proxy frame is skipped, so the real caller is classifie
     assert.deepEqual(info.accepts, ['ptc']);
   } finally {
     rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('third-party callers share the native and alias layers only in Deep PTC sessions', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'deep-ptc-identity-'));
+  let lookups = 0;
+  const registry = { composedPreset(ctx) { lookups++; return ctx.preset; } };
+  const compat = installPresetCompat({ agentPresets: registry }, opts);
+  try {
+    const legacy = fakePackage(root, 'ptc-tool', '');
+    const native = fakePackage(root, 'deep-ptc-aware-tool', '');
+    const host = fakePackage(root, '@deepseek-ai/dsh-tool-schedule', '');
+    writeFileSync(join(legacy, 'entry.mjs'), `
+      export function identify(registry, agent) {
+        const preset = registry.composedPreset(agent.ctx);
+        return { preset, enabled: preset === 'ptc' };
+      }
+    `);
+    writeFileSync(join(native, 'entry.mjs'), `
+      export function identify(registry, agent) {
+        const preset = registry.composedPreset(agent.ctx);
+        return { preset, enabled: ['deep-ptc', 'ptc'].includes(preset) };
+      }
+    `);
+    writeFileSync(join(host, 'entry.mjs'), `
+      export const identify = (registry, agent) => registry.composedPreset(agent.ctx);
+      export const invoke = (plugin, registry, agent) => plugin(registry, agent);
+    `);
+    const legacyPlugin = await import(pathToFileURL(join(legacy, 'entry.mjs')));
+    const nativePlugin = await import(pathToFileURL(join(native, 'entry.mjs')));
+    const official = await import(pathToFileURL(join(host, 'entry.mjs')));
+
+    for (const preset of ['deep-ptc', 'ptc', 'standard', 'minimal', 'cordis', 'custom', undefined]) {
+      const session = { header: Object.freeze({ agentPreset: preset }) };
+      const agent = { ctx: { preset }, session };
+      const visible = preset === 'deep-ptc' ? 'ptc' : preset;
+      const expected = { preset: visible, enabled: visible === 'ptc' };
+      const before = lookups;
+      assert.deepEqual(legacyPlugin.identify(registry, agent), expected);
+      assert.deepEqual(official.invoke(legacyPlugin.identify, registry, agent), expected);
+      assert.deepEqual(nativePlugin.identify(registry, agent), {
+        preset, enabled: preset === 'deep-ptc' || preset === 'ptc',
+      });
+      assert.equal(official.identify(registry, agent), preset);
+      assert.equal(lookups - before, 4);
+      assert.equal(agent.session.header.agentPreset, preset);
+    }
+  } finally {
+    compat.dispose();
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a failed caller inspection keeps the native preset ID', () => {
+  const registry = { composedPreset: () => 'deep-ptc' };
+  const compat = installPresetCompat({ agentPresets: registry }, opts);
+  const prepare = Error.prepareStackTrace;
+  try {
+    Error.prepareStackTrace = () => { throw new Error('stack unavailable'); };
+    assert.equal(registry.composedPreset(), 'deep-ptc');
+  } finally {
+    Error.prepareStackTrace = prepare;
+    compat.dispose();
   }
 });
 

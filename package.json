@@ -1,7 +1,7 @@
 {
   "name": "dsh-deep-ptc-mode",
-  "version": "1.8.7",
-  "description": "Deep PTC agent mode for DSH with interruptible background jobs, selectable shells, and plugin-aware tools.",
+  "version": "1.8.8",
+  "description": "Deep PTC mode for DeepSeek Harness with a bilingual UI, interruptible background jobs, selectable shells, and third-party PTC compatibility.",
   "type": "module",
   "keywords": [
     "dsh-plugin",

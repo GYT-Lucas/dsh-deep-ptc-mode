@@ -142,6 +142,18 @@ test('explicit route names remain validated without an execution alias', () => {
   assert.ok(isOfficialTool(markOfficialTool(def('new_official_tool'), 'new module')));
 });
 
+test('structured module-not-found codes quarantine an external tool immediately', () => {
+  for (const result of [
+    { isError: true, error: { info: { code: 'ERR_MODULE_NOT_FOUND' }, message: "Cannot find package 'optional-worker'" } },
+    { isError: true, error: { code: 'MODULE_NOT_FOUND', message: "Cannot find module 'optional-worker'" } },
+    { value: { failure: { code: 'ERR_MODULE_NOT_FOUND' } } },
+  ]) {
+    const f = setup();
+    f.state.observe(f.call(), result);
+    assert.equal(f.state.status(f.agent).blocked[0]?.kind, 'unavailable');
+  }
+});
+
 test('wrong input never quarantines, however often it repeats', () => {
   const f = setup();
   for (const message of ['ENOENT: no such file: /tmp/typo.txt', 'file not found', 'invalid path', '404 Not Found', 'Permission denied', '403 Forbidden'])
@@ -168,13 +180,32 @@ test('temporary and unexplained failures need consecutive strikes, and a success
   assert.equal(f.state.status(f.agent).blocked.length, 0, 'reset also clears the count');
 });
 
-test('a broken provider is recognised from a plain error and quarantined at once', () => {
-  const f = setup();
-  f.state.observe(f.call(), { isError: true, error: { message: 'client.fetch is not a function' } });
-  assert.match(f.state.guard(f.call()), /quarantined/);
+test('a provider whose code cannot load is quarantined at once; a defect inside a tool is a strike', () => {
   const g = setup();
   g.state.observe(g.call(), { isError: true, error: { message: "Cannot find module 'left-pad'" } });
   assert.equal(g.state.status(g.agent).blocked[0].kind, 'unavailable', 'a missing module is not a missing file');
+
+  // One code path may throw while the rest of the tool works, so a TypeError alone proves nothing.
+  const f = setup();
+  for (const message of ['client.fetch is not a function', "Cannot read properties of undefined (reading 'invalid')",
+    'Method not implemented']) {
+    assert.equal(classifyToolOutcome({}, { isError: true, error: { message } }).kind, 'failure', message);
+  }
+  const defect = { isError: true, error: { message: 'client.fetch is not a function' } };
+  for (let i = 0; i < QUARANTINE_STRIKES - 1; i++) f.state.observe(f.call(), defect);
+  assert.equal(f.state.guard(f.call()), undefined, 'still callable below the limit');
+  f.state.observe(f.call(), defect);
+  assert.match(f.state.guard(f.call()), /quarantined/);
+});
+
+test('a number is an HTTP status only where the text says so', () => {
+  const kind = message => classifyToolOutcome({}, { isError: true, error: { message } }).kind;
+  assert.equal(kind('Request failed with status code 403'), 'denied');
+  assert.equal(kind('HTTP 404'), 'input');
+  assert.equal(kind('HTTP/1.1 503 Service Unavailable'), 'temporary');
+  assert.equal(kind('upstream returned status: 429'), 'temporary');
+  for (const message of ['parse error at line 404', 'processed 503 rows before the crash', 'listening on port 401 failed'])
+    assert.equal(kind(message), 'failure', message);
 });
 
 test('a normal result reporting on its own subject is not a tool failure', () => {

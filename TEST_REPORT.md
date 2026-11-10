@@ -1,5 +1,8 @@
 # 1.7.3 实测汇总 / Test summary
 
+> 1.8.8 在 Windows 和 Node 24 上通过 171 项自动化测试，覆盖中英切换、预设识别和工具隔离。DSH 槽位测试验证了模式选择器的本地化。下方保留 1.7.3 的桌面实测记录。
+> Version 1.8.8 passes 171 automated tests on Windows and Node 24, including language switching, preset identity, and tool quarantine. A DSH slot check verifies preset-picker localization. The desktop audits below document 1.7.3.
+
 日期 / Date: 2026-11-05。测试宿主：Windows 桌面 DSH 0.2.2-rc.1 + WSL Ubuntu、Node 24。此版本是测试样本，运行时不据此固定工具清单。
 
 ## 中文
