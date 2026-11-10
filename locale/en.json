@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Deep PTC Mode",
+    "description": "Deep PTC agent mode for DeepSeek Harness with interruptible background jobs, selectable shells, and plugin-aware tools.",
+    "detail": "README.md"
+  }
+}
