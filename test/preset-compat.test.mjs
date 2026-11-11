@@ -117,6 +117,41 @@ test('host frames are recognised by official package path, not by a similar name
   }
 });
 
+test('an official plugin gating on a base preset id gets the compat layer, others stay exact', () => {
+  const root = mkdtempSync(join(tmpdir(), 'deep-ptc-official-'));
+  try {
+    // A bundled official plugin with a configuration-driven gate. The computer-use
+    // tools ship exactly this shape: agentPreset defaults to 'ptc' in the schema and the
+    // runtime compares composedPreset against the configured value, so no preset literal
+    // sits next to the comparison.
+    const bundled = join(root, 'app.asar', 'dsh', 'node_modules');
+    const cuaDir = join(bundled, '@deepseek-ai', 'dsh-cua');
+    mkdirSync(cuaDir, { recursive: true });
+    writeFileSync(join(cuaDir, 'package.json'), JSON.stringify({ name: '@deepseek-ai/dsh-cua', version: '0.2.2-rc.2' }));
+    writeFileSync(join(cuaDir, 'lib.js'), [
+      "agentPreset: Schema.union([Schema.string().min(1), Schema.const(false)]).default(\"ptc\"),",
+      "if (config.agentPreset === false) register(ctx);",
+      "if (presetCtx.agentPresets.composedPreset(agent.ctx) !== config.agentPreset) return;",
+    ].join('\n') + '\n');
+    // An official plugin that calls composedPreset without gating on an id.
+    const plainDir = join(bundled, '@deepseek-ai', 'dsh-tool-manager');
+    mkdirSync(plainDir, { recursive: true });
+    writeFileSync(join(plainDir, 'package.json'), JSON.stringify({ name: '@deepseek-ai/dsh-tool-manager', version: '1.0.0' }));
+    writeFileSync(join(plainDir, 'lib.js'), "export const preset = ctx.agentPresets.composedPreset(agent.ctx);\n");
+    const frames = file => ['Error', '    at composedPreset (file:///x/preset-compat.mjs:1:1)', `    at sync (${file}:1:1)`].join('\n');
+    const gateInfo = inspectCaller(frames('file://' + join(cuaDir, 'lib.js')), 'deep-ptc');
+    assert.equal(gateInfo.host, false, 'a gating official plugin is classified like an external plugin');
+    assert.equal(gateInfo.packageName, '@deepseek-ai/dsh-cua');
+    assert.equal(gateInfo.restricted, true);
+    assert.deepEqual(gateInfo.accepts, ['ptc']);
+    assert.equal(decidePresetId('deep-ptc', opts, gateInfo), 'ptc');
+    assert.equal(inspectCaller(frames('file://' + join(plainDir, 'lib.js')), 'deep-ptc').host, true, 'a gate-free official plugin keeps the exact identity');
+    assert.equal(inspectCaller(frames('file:///opt/app/app.asar/dsh/web/ui.js'), 'deep-ptc').host, true, 'bundled application code outside node_modules keeps the exact identity');
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
 test('the Cordis service proxy frame is skipped, so the real caller is classified', () => {
   const root = mkdtempSync(join(tmpdir(), 'deep-ptc-proxy-'));
   try {
