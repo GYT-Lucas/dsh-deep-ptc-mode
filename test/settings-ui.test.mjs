@@ -85,12 +85,11 @@ test('settings follow DSH language changes while keeping the form and its saved 
 test('DSH preset surfaces translate only the Deep PTC display copy and keep the real selection ID', async () => {
   const row = { id: 'deep-ptc', name: '深度PTC模式', description: '原描述 当前环境：wsl (Ubuntu)' };
   const official = { id: 'ptc', name: 'Official PTC', description: 'Official description' };
-  const snapshot = { rows: [official, { ...row, description: '原描述 当前为安全模式' }], options: [official, row] };
+  const snapshot = { options: [official, row] };
   const picks = [];
   const specs = [
     ['conversation.hero.agentPreset', undefined, 'useAgentPresetSeat', 'options'],
     ['conversation.session.header.actions', 'agent-preset', 'useAgentPresets', 'options'],
-    ['settings.section', 'agent-presets', 'useAgentPresetSection', 'rows'],
   ];
   const entries = new Map(specs.map(([name, id, hook, field]) => [name, [{
     options: { id }, locale: 'settings.agentPreset',
@@ -109,22 +108,61 @@ test('DSH preset surfaces translate only the Deep PTC display copy and keep the 
       await act(async () => views.push(Renderer.create(React.createElement(localized.component,
         { ...localized.inject(), [hook]: select => select(snapshot) }))));
     }
-    for (const [index, view] of views.entries()) {
+    for (const view of views) {
       const buttons = view.root.findAllByType('button');
       assert.equal(buttons[0].props.children, 'Official PTC');
       assert.equal(buttons[1].props.children, 'Deep PTC Mode');
-      assert.match(buttons[1].props.title, index === 2 ? /Safe mode is active/u : /Current environment: WSL \(Ubuntu\)/u);
+      assert.match(buttons[1].props.title, /Current environment: WSL \(Ubuntu\)/u);
     }
     await act(async () => views[0].root.findAllByType('button')[1].props.onClick());
     assert.deepEqual(picks, ['deep-ptc']);
     await act(async () => fixture.setLocale('zh'));
-    for (const [index, view] of views.entries()) {
+    for (const view of views) {
       const buttons = view.root.findAllByType('button');
       assert.equal(buttons[0].props.children, 'Official PTC');
       assert.equal(buttons[1].props.children, '深度 PTC 模式');
-      assert.match(buttons[1].props.title, index === 2 ? /当前为安全模式/u : /当前环境：WSL \(Ubuntu\)/u);
+      assert.match(buttons[1].props.title, /当前环境：WSL \(Ubuntu\)/u);
     }
     assert.deepEqual(row, { id: 'deep-ptc', name: '深度PTC模式', description: '原描述 当前环境：wsl (Ubuntu)' });
+  } finally {
+    await act(async () => { for (const view of views) view.unmount(); });
+  }
+});
+
+test('the safe-mode suffix still translates on the remaining preset surfaces', async () => {
+  const row = { id: 'deep-ptc', name: '深度PTC模式', description: '原描述 当前为安全模式' };
+  const official = { id: 'ptc', name: 'Official PTC', description: 'Official description' };
+  const snapshot = { options: [official, row] };
+  const specs = [
+    ['conversation.hero.agentPreset', undefined, 'useAgentPresetSeat', 'options'],
+    ['conversation.session.header.actions', 'agent-preset', 'useAgentPresets', 'options'],
+  ];
+  const entries = new Map(specs.map(([name, id, hook, field]) => [name, [{
+    options: { id }, locale: 'settings.agentPreset',
+    inject: () => ({ select: () => {} }),
+    component: props => React.createElement('div', null,
+      ...props[hook](state => state[field]).map(preset => React.createElement('button',
+        { key: preset.id, title: preset.description }, preset.name))),
+  }]]));
+  const fixture = setup('win32', 'en', entries);
+  const views = [];
+  try {
+    for (const [name, , hook] of specs) {
+      const [, localized] = entries.get(name);
+      await act(async () => views.push(Renderer.create(React.createElement(localized.component,
+        { ...localized.inject(), [hook]: select => select(snapshot) }))));
+    }
+    for (const view of views) {
+      const buttons = view.root.findAllByType('button');
+      assert.equal(buttons[1].props.children, 'Deep PTC Mode');
+      assert.match(buttons[1].props.title, /Safe mode is active/u);
+    }
+    await act(async () => fixture.setLocale('zh'));
+    for (const view of views) {
+      const buttons = view.root.findAllByType('button');
+      assert.equal(buttons[1].props.children, '深度 PTC 模式');
+      assert.match(buttons[1].props.title, /当前为安全模式/u);
+    }
   } finally {
     await act(async () => { for (const view of views) view.unmount(); });
   }
